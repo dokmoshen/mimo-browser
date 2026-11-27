@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mimo Browser</string>
+    <string name="brand_name">mimo</string>
+    <string name="brand_product">browser</string>
+    <string name="brand_tagline">браузер, который дышит</string>
+
+    <!-- Home -->
+    <string name="home_eyebrow">интернет без суеты</string>
+    <string name="home_title">Куда пойдём?</string>
+    <string name="home_subtitle">Адрес, запрос или тихое чтение — всё в одном месте.</string>
+    <string name="search_hint">Поиск или адрес</string>
+    <string name="home_bookmarks">Быстрый доступ</string>
+    <string name="home_recent">Недавно</string>
+    <string name="home_no_bookmarks">Закладок пока нет</string>
+    <string name="home_no_bookmarks_body">Добавляйте страницы звёздочкой в адресной строке — они появятся здесь.</string>
+    <string name="home_no_recent">Здесь будет история</string>
+    <string name="home_no_recent_body">Откройте первую страницу — и Mimo запомнит, где вы остановились.</string>
+    <string name="home_add_tile">Добавить</string>
+    <string name="home_browse_suggestion">Открыть Википедию</string>
+    <string name="home_all_bookmarks">Все закладки</string>
+
+    <!-- Browser chrome -->
+    <string name="back">Назад</string>
+    <string name="forward">Вперёд</string>
+    <string name="refresh">Обновить</string>
+    <string name="stop">Остановить</string>
+    <string name="close">Закрыть</string>
+    <string name="menu">Меню</string>
+    <string name="share">Поделиться</string>
+    <string name="copy_link">Скопировать ссылку</string>
+    <string name="link_copied">Ссылка скопирована</string>
+    <string name="open_external">Открыть в другом браузере</string>
+    <string name="desktop_mode">Версия для компьютера</string>
+    <string name="find_in_page">Найти на странице</string>
+    <string name="page_loading">Загрузка…</string>
+    <string name="page_error_title">Не удалось открыть страницу</string>
+    <string name="page_error_body">Проверьте соединение и попробуйте ещё раз.</string>
+    <string name="page_error_unknown">Что-то пошло не так на этом пути.</string>
+    <string name="retry">Повторить</string>
+    <string name="insecure_connection">Соединение не защищено</string>
+    <string name="secure_connection">Защищённое соединение</string>
+    <string name="site_settings">Настройки сайта</string>
+    <string name="download_started">Загрузка началась</string>
+    <string name="download_failed">Не удалось скачать файл</string>
+    <string name="file_chooser">Выберите файл</string>
+
+    <!-- Tabs -->
+    <string name="tabs">Вкладки</string>
+    <string name="new_tab">Новая вкладка</string>
+    <string name="close_tab">Закрыть вкладку</string>
+    <string name="close_all_tabs">Закрыть все</string>
+    <string name="tabs_empty_title">Пока одна вкладка</string>
+    <string name="tabs_empty_body">Откройте новую, чтобы путешествовать параллельно.</string>
+    <string name="tab_home">Новая вкладка</string>
+    <string name="tab_untitled">Без названия</string>
+    <plurals name="tab_count">
+        <item quantity="one">%d вкладка</item>
+        <item quantity="few">%d вкладки</item>
+        <item quantity="many">%d вкладок</item>
+        <item quantity="other">%d вкладки</item>
+    </plurals>
+    <plurals name="download_count">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+
+    <!-- Omnibox -->
+    <string name="omnibox_hint">Введите адрес или запрос</string>
+    <string name="omnibox_search_in">Искать в %s</string>
+    <string name="omnibox_open">Открыть</string>
+    <string name="omnibox_search_title">Найти в интернете</string>
+    <string name="omnibox_bookmarks">Закладки</string>
+    <string name="omnibox_history">История</string>
+    <string name="omnibox_clear">Очистить</string>
+    <string name="omnibox_no_results">Начните вводить адрес или запрос</string>
+    <string name="omnibox_engine_google">Google</string>
+    <string name="omnibox_engine_duckduckgo">DuckDuckGo</string>
+    <string name="omnibox_engine_yandex">Яндекс</string>
+    <string name="omnibox_engine_bing">Bing</string>
+
+    <!-- Library -->
+    <string name="library">Библиотека</string>
+    <string name="bookmarks">Закладки</string>
+    <string name="history">История</string>
+    <string name="downloads">Загрузки</string>
+    <string name="settings">Настройки</string>
+    <string name="search_library">Поиск</string>
+    <string name="bookmarks_empty_title">Закладок пока нет</string>
+    <string name="bookmarks_empty_body">Нажмите на звёздочку в адресной строке, чтобы сохранить страницу.</string>
+    <string name="history_empty_title">История пуста</string>
+    <string name="history_empty_body">Страницы, которые вы открываете, появятся здесь.</string>
+    <string name="downloads_empty_title">Загрузок нет</string>
+    <string name="downloads_empty_body">Файлы, скачанные из браузера, будут ждать здесь.</string>
+    <string name="library_empty_search_title">Ничего не найдено</string>
+    <string name="library_empty_search_body">Попробуйте другой запрос.</string>
+    <string name="clear_history">Очистить историю</string>
+    <string name="clear_bookmarks">Очистить закладки</string>
+    <string name="clear_downloads">Очистить загрузки</string>
+    <string name="history_cleared">История очищена</string>
+    <string name="bookmarks_cleared">Закладки очищены</string>
+    <string name="downloads_cleared">Загрузки очищены</string>
+    <string name="today">Сегодня</string>
+    <string name="yesterday">Вчера</string>
+    <string name="earlier">Раньше</string>
+    <string name="delete_bookmark">Удалить закладку</string>
+    <string name="remove_download">Удалить загрузку</string>
+    <string name="download_open">Открыть</string>
+    <string name="download_share">Поделиться</string>
+    <string name="download_status_running">Скачивается…</string>
+    <string name="download_status_complete">Скачано</string>
+    <string name="download_status_failed">Ошибка загрузки</string>
+    <string name="download_file_missing">Файл не найден</string>
+    <string name="bookmark_add">Добавить в закладки</string>
+    <string name="bookmark_remove">Убрать из закладок</string>
+    <string name="bookmark_added">Добавлено в закладки</string>
+    <string name="bookmark_removed">Убрано из закладок</string>
+
+    <!-- Settings -->
+    <string name="appearance">Оформление</string>
+    <string name="theme">Тема</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="dynamic_color">Динамические цвета</string>
+    <string name="dynamic_color_desc">Подстраивать палитру под обои</string>
+    <string name="design_language">Язык дизайна</string>
+    <string name="design_expressive">Expressive</string>
+    <string name="design_nothing">Nothing</string>
+    <string name="design_expressive_desc">Тёплая бумага, мягкие формы, пружины.</string>
+    <string name="design_nothing_desc">Монохром, красный акцент, точечный шрифт.</string>
+    <string name="browsing">Просмотр</string>
+    <string name="search_engine">Поиск по умолчанию</string>
+    <string name="javascript">JavaScript</string>
+    <string name="javascript_desc">Без него часть сайтов не работает.</string>
+    <string name="desktop_mode_desc">Открывать сайты в настольном виде.</string>
+    <string name="data">Данные</string>
+    <string name="clear_web_data">Cookies и данные сайтов</string>
+    <string name="clear_web_data_desc">Выйти из аккаунтов и очистить кэш сайтов.</string>
+    <string name="web_data_cleared">Данные сайтов очищены</string>
+    <string name="about">О приложении</string>
+    <string name="version">Версия %s</string>
+    <string name="about_body">Тёплый браузер на Material 3 Expressive. Никаких аккаунтов и облака: история, закладки и настройки остаются на устройстве.</string>
+    <string name="about_license">GPL-3.0. Основан на проекте Mimo.</string>
+    <string name="clear">Очистить</string>
+    <string name="delete">Удалить</string>
+    <string name="cancel">Отмена</string>
+    <string name="done">Готово</string>
+    <string name="open">Открыть</string>
+    <string name="copy">Копировать</string>
+    <string name="all">Все</string>
+    <string name="settings_back">Назад</string>
+    <string name="unknown_site">Страница</string>
+    <string name="search_with_engine">Поиск: %s</string>
+</resources>
