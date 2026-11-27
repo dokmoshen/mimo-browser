@@ -98,5 +98,5 @@ GPL-3.0 · Android 9+
 
 ## Лицензия
 
-GPL-3.0. Mimo Browser основан на проекте [Mimo](https://github.com/dokmoshen/mimo).
-Тексты лицензий шрифтов и Lucide лежат в `app/src/main/assets/licenses/`.
+GPL-3.0. Тексты лицензий шрифтов и Lucide лежат в
+`app/src/main/assets/licenses/`.
