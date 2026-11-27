@@ -81,6 +81,7 @@ import app.mimo.browser.MimoBrowserApp
 import app.mimo.browser.R
 import app.mimo.browser.preferences.DesignLanguage
 import app.mimo.browser.preferences.ThemeMode
+import app.mimo.browser.search.DuckDuckGo
 import app.mimo.browser.ui.browser.BrowserContent
 import app.mimo.browser.ui.browser.BrowserOmnibox
 import app.mimo.browser.ui.browser.BrowserTabsScreen
@@ -163,6 +164,7 @@ private fun BrowserRootContent(
     val menuOpen by viewModel.menuOpen.collectAsStateWithLifecycle()
     val omniboxQuery by viewModel.omniboxQuery.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val nativeSearch by viewModel.nativeSearch.collectAsStateWithLifecycle()
     val activeTab by viewModel.activeBrowserTab.collectAsStateWithLifecycle()
     val activeState by viewModel.activeState.collectAsStateWithLifecycle()
     val tabs by viewModel.snapshots.collectAsStateWithLifecycle()
@@ -189,13 +191,16 @@ private fun BrowserRootContent(
             holdPageBlur = false
         }
     }
+    val nativeSearchActive = activeState?.let {
+        !it.isHome && it.error == null && DuckDuckGo.queryOf(it.url) != null
+    } == true
     val pageBlurred = (menuOpen || holdPageBlur) && settings.interfaceBlur &&
-        activeState?.isHome == false && activeState?.error == null &&
+        activeState?.isHome == false && activeState?.error == null && !nativeSearchActive &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val blurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
     val density = LocalDensity.current.density
     val chromeBlur = settings.interfaceBlur &&
-        activeState?.isHome == false && activeState?.error == null
+        activeState?.isHome == false && activeState?.error == null && !nativeSearchActive
     LaunchedEffect(
         pageBlurred,
         chromeBlur,
@@ -322,7 +327,13 @@ private fun BrowserRootContent(
             state = activeState,
             bookmarked = bookmarked,
             omniboxOpen = omniboxOpen,
+            nativeSearch = nativeSearch,
             onOpenOmnibox = { viewModel.openOmnibox() },
+            onOpenSearchResult = { viewModel.openUrl(it) },
+            onEditSearchQuery = { viewModel.openOmnibox(it) },
+            onRetrySearch = { viewModel.retryNativeSearch() },
+            onOpenSearchFallback = { viewModel.openWebSearchFallback() },
+            onGoBack = { viewModel.goBack() },
             onAddressBarBounds = { addressBarBounds = it },
             onReload = { viewModel.reload() },
             onStop = { viewModel.stop() },
@@ -363,8 +374,9 @@ private fun BrowserRootContent(
                 onDockBounds = { dockBounds = it },
                 pageBlurred = pageBlurred,
                 pageGlass = settings.interfaceBlur &&
-                    activeState?.isHome == false && activeState?.error == null,
-                solidBackground = activeState?.error != null,
+                    activeState?.isHome == false && activeState?.error == null &&
+                    !nativeSearchActive,
+                solidBackground = activeState?.error != null || nativeSearchActive,
                 onDismiss = { viewModel.menuOpen.value = false },
                 onMenuClick = {
                     if (!menuOpen) {

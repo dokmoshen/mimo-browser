@@ -13,8 +13,8 @@ android {
         applicationId = "app.mimo.browser"
         minSdk = 28
         targetSdk = 37
-        versionCode = 11
-        versionName = "0.1.10"
+        versionCode = 12
+        versionName = "0.1.11"
     }
 
     buildFeatures {
@@ -65,6 +65,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
 
     implementation("androidx.datastore:datastore-preferences:1.3.0")
+    implementation("org.jsoup:jsoup:1.24.1")
 
     testImplementation("junit:junit:4.13.2")
 }

@@ -73,6 +73,8 @@ import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.theme.LocalInterfaceBlur
 import app.mimo.browser.ui.components.MimoIcons
 import app.mimo.browser.ui.components.MimoLogo
+import app.mimo.browser.search.DuckDuckGo
+import app.mimo.browser.search.DuckSearchState
 import app.mimo.browser.web.BrowserTab
 import app.mimo.browser.web.TabState
 import app.mimo.browser.web.UrlKit
@@ -83,7 +85,13 @@ fun BrowserContent(
     state: TabState?,
     bookmarked: Boolean,
     omniboxOpen: Boolean,
+    nativeSearch: DuckSearchState?,
     onOpenOmnibox: () -> Unit,
+    onOpenSearchResult: (String) -> Unit,
+    onEditSearchQuery: (String) -> Unit,
+    onRetrySearch: () -> Unit,
+    onOpenSearchFallback: () -> Unit,
+    onGoBack: () -> Unit,
     onAddressBarBounds: (androidx.compose.ui.geometry.Rect?) -> Unit = {},
     onReload: () -> Unit,
     onStop: () -> Unit,
@@ -203,6 +211,23 @@ fun BrowserContent(
                 omniboxOpen = omniboxOpen,
             )
         }
+        return
+    }
+
+    val duckQuery = DuckDuckGo.queryOf(state.url)
+    if (duckQuery != null) {
+        val searchState = nativeSearch?.takeIf { it.pageUrl == state.url }
+            ?: DuckSearchState.Loading(duckQuery, state.url)
+        BrowserDuckResultsScreen(
+            state = searchState,
+            onBack = {
+                if (state.canGoBack) onGoBack() else onGoHome()
+            },
+            onEditQuery = onEditSearchQuery,
+            onOpenResult = onOpenSearchResult,
+            onRetry = onRetrySearch,
+            onOpenFallback = onOpenSearchFallback,
+        )
         return
     }
 

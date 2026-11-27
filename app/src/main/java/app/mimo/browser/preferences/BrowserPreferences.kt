@@ -15,7 +15,7 @@ enum class DesignLanguage { EXPRESSIVE, NOTHING }
 
 enum class SearchEngine(val queryPrefix: String) {
     GOOGLE("https://www.google.com/search?q="),
-    DUCKDUCKGO("https://duckduckgo.com/?q="),
+    DUCKDUCKGO("https://html.duckduckgo.com/html/?q="),
     YANDEX("https://yandex.ru/search/?text="),
     BING("https://www.bing.com/search?q=");
 

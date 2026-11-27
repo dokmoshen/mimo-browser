@@ -12,6 +12,9 @@ import app.mimo.browser.preferences.BrowserSettings
 import app.mimo.browser.preferences.DesignLanguage
 import app.mimo.browser.preferences.SearchEngine
 import app.mimo.browser.preferences.ThemeMode
+import app.mimo.browser.search.DuckDuckGo
+import app.mimo.browser.search.DuckResult
+import app.mimo.browser.search.DuckSearchState
 import app.mimo.browser.web.BrowserEngine
 import app.mimo.browser.web.BrowserTab
 import app.mimo.browser.web.FileChooserRequest
@@ -19,7 +22,10 @@ import app.mimo.browser.web.FullscreenView
 import app.mimo.browser.web.JsDialog
 import app.mimo.browser.web.TabState
 import app.mimo.browser.web.UrlKit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -80,6 +86,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val menuOpen = MutableStateFlow(false)
     val omniboxQuery = MutableStateFlow("")
     val libraryQuery = MutableStateFlow("")
+    val nativeSearch = MutableStateFlow<DuckSearchState?>(null)
+    private var nativeSearchJob: Job? = null
+    private val nativeSearchCache = mutableMapOf<String, List<DuckResult>>()
 
     val activeBrowserTab: StateFlow<BrowserTab?> = engine.activeTab
     val tabList: StateFlow<List<BrowserTab>> = engine.tabList
@@ -137,6 +146,67 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             persistTabs()
         }
         viewModelScope.launch { container.downloads.refresh() }
+        viewModelScope.launch {
+            activeState
+                .map { it?.url.orEmpty() }
+                .distinctUntilChanged()
+                .collect { url -> syncNativeSearch(url) }
+        }
+    }
+
+    private fun syncNativeSearch(url: String) {
+        val query = DuckDuckGo.queryOf(url)
+        if (query == null) {
+            nativeSearchJob?.cancel()
+            nativeSearchJob = null
+            if (nativeSearch.value != null) nativeSearch.value = null
+            return
+        }
+        if (nativeSearch.value?.pageUrl == url) return
+        startNativeSearch(query, url)
+    }
+
+    private fun startNativeSearch(query: String, pageUrl: String) {
+        nativeSearchJob?.cancel()
+        val cached = nativeSearchCache[query]
+        if (cached != null) {
+            nativeSearchJob = null
+            nativeSearch.value = DuckSearchState.Ready(query, pageUrl, cached)
+            return
+        }
+        nativeSearch.value = DuckSearchState.Loading(query, pageUrl)
+        nativeSearchJob = viewModelScope.launch {
+            try {
+                val results = DuckDuckGo.search(query)
+                nativeSearchCache[query] = results
+                if (isActive && nativeSearch.value?.pageUrl == pageUrl) {
+                    nativeSearch.value = DuckSearchState.Ready(query, pageUrl, results)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (isActive && nativeSearch.value?.pageUrl == pageUrl) {
+                    nativeSearch.value = DuckSearchState.Failed(
+                        query = query,
+                        pageUrl = pageUrl,
+                        reason = error.message,
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryNativeSearch() {
+        val state = nativeSearch.value ?: return
+        nativeSearchCache.remove(state.query)
+        startNativeSearch(state.query, state.pageUrl)
+    }
+
+    fun openWebSearchFallback() {
+        val query = nativeSearch.value?.query ?: return
+        engine.openUrl(DuckDuckGo.webSearchUrl(query))
+        destination.value = Destination.Browser
+        closeOverlays()
     }
 
     private fun observeSettings() {
@@ -221,7 +291,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun openSuggestion(suggestion: OmniboxSuggestion) {
         omniboxQuery.value = ""
         closeOmnibox()
-        engine.openUrl(suggestion.url)
+        val target = if (
+            suggestion.kind == SuggestionKind.SEARCH &&
+            settings.value.searchEngine == SearchEngine.DUCKDUCKGO
+        ) {
+            DuckDuckGo.searchUrl(suggestion.title)
+        } else {
+            suggestion.url
+        }
+        engine.openUrl(target)
         destination.value = Destination.Browser
     }
 
