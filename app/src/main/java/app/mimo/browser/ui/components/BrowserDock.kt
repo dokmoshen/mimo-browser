@@ -46,19 +46,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.mimo.browser.ui.LocalMimoHaptics
+import app.mimo.browser.ui.theme.LocalInterfaceBlur
+import app.mimo.browser.ui.theme.LocalMimoDark
 
 enum class BrowserPanelMode { DOCK, MENU }
 
@@ -78,6 +87,8 @@ fun BrowserSurfaceHost(
     canGoForward: Boolean,
     desktopMode: Boolean,
     hasPage: Boolean,
+    backdrop: GlassBackdrop? = null,
+    pageBlurred: Boolean = false,
     onDismiss: () -> Unit,
     onMenuClick: () -> Unit,
     onBack: () -> Unit,
@@ -97,6 +108,16 @@ fun BrowserSurfaceHost(
     val expanded = mode == BrowserPanelMode.MENU
     val haptics = LocalMimoHaptics.current
     val scrim = remember { MutableInteractionSource() }
+    val windowView = LocalView.current
+    val blurEnabled = LocalInterfaceBlur.current
+    var panelScreen by remember { mutableStateOf<Rect?>(null) }
+    val screen = panelScreen
+    val showBackdrop = expanded && blurEnabled && !pageBlurred && backdrop != null && screen != null
+    val glassActive = expanded && blurEnabled && (showBackdrop || pageBlurred)
+    val dark = LocalMimoDark.current
+    val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val tintStart = surfaceColor.copy(alpha = if (dark) 0.30f else 0.20f)
+    val tintEnd = surfaceColor.copy(alpha = if (dark) 0.44f else 0.32f)
 
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -122,7 +143,7 @@ fun BrowserSurfaceHost(
                 302.dp
             }
             val panelHeight = if (expanded) {
-                (maxHeight - 150.dp).coerceAtMost(460.dp)
+                (maxHeight - 150.dp).coerceAtMost(if (hasPage) 440.dp else 320.dp)
             } else {
                 68.dp
             }
@@ -155,21 +176,62 @@ fun BrowserSurfaceHost(
                     .padding(bottom = 10.dp)
                     .width(width)
                     .height(height)
+                    .onGloballyPositioned { coordinates ->
+                        val location = IntArray(2)
+                        windowView.rootView.getLocationOnScreen(location)
+                        val position = coordinates.positionInRoot()
+                        panelScreen = Rect(
+                            left = location[0] + position.x,
+                            top = location[1] + position.y,
+                            right = location[0] + position.x + coordinates.size.width,
+                            bottom = location[1] + position.y + coordinates.size.height,
+                        )
+                    }
                     .graphicsLayer {
                         transformOrigin = TransformOrigin(0.14f, 1f)
                         scaleX = 0.92f + 0.08f * origin
                         scaleY = 0.96f + 0.04f * origin
                     },
                 shape = RoundedCornerShape(corner),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f),
+                color = if (glassActive) Color.Transparent else surfaceColor.copy(alpha = 1f),
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
                 ),
-                shadowElevation = if (expanded) 24.dp else 14.dp,
+                shadowElevation = if (expanded) {
+                    if (glassActive) 0.dp else 24.dp
+                } else {
+                    14.dp
+                },
             ) {
                 val glow = MaterialTheme.colorScheme.primary
-                Box(Modifier.fillMaxSize()) {
+                val panelShape = RoundedCornerShape(corner)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(panelShape),
+                ) {
+                    if (showBackdrop && backdrop != null && screen != null) {
+                        GlassBackdropLayer(
+                            backdrop = backdrop,
+                            panel = screen,
+                            blurRadius = 30.dp,
+                            tint = Brush.verticalGradient(listOf(tintStart, tintEnd)),
+                            modifier = Modifier.matchParentSize(),
+                        )
+                    } else if (glassActive) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .background(Brush.verticalGradient(listOf(tintStart, tintEnd))),
+                        )
+                    } else {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .background(surfaceColor.copy(alpha = 1f)),
+                        )
+                    }
                     Canvas(Modifier.fillMaxSize()) {
                         val radius = size.maxDimension * (0.10f + 0.65f * origin)
                         drawCircle(
@@ -358,6 +420,8 @@ private fun MenuContent(
     downloadCount: Int,
     desktopMode: Boolean,
     hasPage: Boolean,
+    backdrop: GlassBackdrop? = null,
+    pageBlurred: Boolean = false,
     onDismiss: () -> Unit,
     onBookmarks: () -> Unit,
     onHistory: () -> Unit,

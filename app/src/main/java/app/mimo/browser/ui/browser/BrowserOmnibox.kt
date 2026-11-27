@@ -120,7 +120,9 @@ fun BrowserOmnibox(
                     shadowElevation = 6.dp,
                 ) {
                     Row(
-                        modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 16.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(

@@ -331,7 +331,9 @@ private fun LibrarySearchField(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 6.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

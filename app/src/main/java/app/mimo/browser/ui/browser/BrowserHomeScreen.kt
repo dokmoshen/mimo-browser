@@ -304,7 +304,9 @@ private fun HomeSearchBar(onClick: () -> Unit) {
         shadowElevation = 4.dp,
     ) {
         Row(
-            modifier = Modifier.padding(start = 9.dp, end = 9.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 9.dp, end = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(

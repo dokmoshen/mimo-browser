@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -81,9 +82,11 @@ fun BrowserAddressBar(
             ),
             shadowElevation = 8.dp,
         ) {
-            Box {
+            Box(Modifier.fillMaxSize()) {
                 Row(
-                    modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 16.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(

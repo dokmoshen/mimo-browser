@@ -1,6 +1,9 @@
 package app.mimo.browser.ui
 
 import android.app.Activity
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -57,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -79,6 +83,8 @@ import app.mimo.browser.ui.browser.BrowserTabsScreen
 import app.mimo.browser.ui.components.AnimatedMimoMark
 import app.mimo.browser.ui.components.BrowserPanelMode
 import app.mimo.browser.ui.components.BrowserSurfaceHost
+import app.mimo.browser.ui.components.GlassBackdrop
+import app.mimo.browser.ui.components.captureGlassBackdrop
 import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.components.MimoIcons
 import app.mimo.browser.ui.library.BrowserLibraryScreen
@@ -136,6 +142,8 @@ private fun BrowserRootContent(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
+    val rootView = LocalView.current.rootView
+    var glassBackdrop by remember { mutableStateOf<GlassBackdrop?>(null) }
     val downloadStartedLabel = stringResource(R.string.download_started)
     val downloadsLabel = stringResource(R.string.downloads)
     val downloadFailedLabel = stringResource(R.string.download_failed)
@@ -166,6 +174,28 @@ private fun BrowserRootContent(
     val jsDialog by viewModel.jsDialog.collectAsStateWithLifecycle()
 
     val dockVisible = destination == Destination.Browser && !omniboxOpen && !tabsOpen
+    val pageBlurred = menuOpen && settings.interfaceBlur &&
+        activeState?.isHome == false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val blurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
+    LaunchedEffect(menuOpen, settings.interfaceBlur, activeTab?.id, activeState?.isHome) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val webView = activeTab?.webView
+            webView?.setRenderEffect(
+                if (pageBlurred) {
+                    RenderEffect.createBlurEffect(blurRadiusPx, blurRadiusPx, Shader.TileMode.CLAMP)
+                } else {
+                    null
+                },
+            )
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                activeTab?.webView?.setRenderEffect(null)
+            }
+        }
+    }
 
     LaunchedEffect(incomingUrl, ready) {
         if (incomingUrl != null && ready) {
@@ -283,8 +313,19 @@ private fun BrowserRootContent(
                 canGoForward = activeState?.canGoForward == true,
                 desktopMode = settings.desktopMode,
                 hasPage = activeState?.isHome == false,
+                backdrop = glassBackdrop,
+                pageBlurred = pageBlurred,
                 onDismiss = { viewModel.menuOpen.value = false },
-                onMenuClick = { viewModel.menuOpen.value = true },
+                onMenuClick = {
+                    if (!menuOpen) {
+                        glassBackdrop = if (activeState?.isHome == true) {
+                            captureGlassBackdrop(rootView)
+                        } else {
+                            null
+                        }
+                        viewModel.menuOpen.value = true
+                    }
+                },
                 onBack = { viewModel.goBack() },
                 onForward = { viewModel.goForward() },
                 onNewTab = { viewModel.newTab() },
