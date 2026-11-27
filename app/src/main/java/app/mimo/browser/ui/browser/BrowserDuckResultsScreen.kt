@@ -1,6 +1,7 @@
 package app.mimo.browser.ui.browser
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +42,7 @@ import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.components.BrowserIcons
 import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.components.MimoIcons
+import app.mimo.browser.ui.components.MimoLogo
 import app.mimo.browser.ui.components.SiteBadge
 import app.mimo.browser.ui.components.pressScale
 import app.mimo.browser.ui.components.staggeredReveal
@@ -55,9 +59,8 @@ fun BrowserDuckResultsScreen(
 ) {
     MimoBackdrop {
         Column(Modifier.fillMaxSize()) {
-            ResultsTopBar(
-                query = state.query,
-                loading = state is DuckSearchState.Loading,
+            ResultsHeader(
+                state = state,
                 onBack = onBack,
                 onEditQuery = { onEditQuery(state.query) },
                 onRetry = onRetry,
@@ -84,6 +87,7 @@ fun BrowserDuckResultsScreen(
                             ResultsList(
                                 results = state.results,
                                 onOpenResult = onOpenResult,
+                                onEditQuery = { onEditQuery(state.query) },
                                 onOpenFallback = onOpenFallback,
                             )
                         }
@@ -95,95 +99,126 @@ fun BrowserDuckResultsScreen(
 }
 
 @Composable
-private fun ResultsTopBar(
-    query: String,
-    loading: Boolean,
+private fun ResultsHeader(
+    state: DuckSearchState,
     onBack: () -> Unit,
     onEditQuery: () -> Unit,
     onRetry: () -> Unit,
 ) {
     val haptics = LocalMimoHaptics.current
-    Row(
+    val loading = state is DuckSearchState.Loading
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp),
     ) {
-        IconButton(
-            onClick = {
-                haptics.tap()
-                onBack()
-            },
-            modifier = Modifier.size(48.dp),
-        ) {
-            Icon(
-                MimoIcons.ArrowBack,
-                contentDescription = "Назад",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-        Surface(
-            onClick = {
-                haptics.tap()
-                onEditQuery()
-            },
-            modifier = Modifier
-                .weight(1f)
-                .height(52.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-            ),
-            shadowElevation = 2.dp,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 15.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = {
+                    haptics.tap()
+                    onBack()
+                },
+                modifier = Modifier.size(48.dp),
             ) {
                 Icon(
-                    MimoIcons.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    query,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    MimoIcons.ArrowBack,
+                    contentDescription = "Назад",
+                    tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-        }
-        IconButton(
-            onClick = {
-                if (!loading) {
-                    haptics.tap()
-                    onRetry()
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    Text(
+                        "D",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                    )
                 }
-            },
-            enabled = !loading,
-            modifier = Modifier.size(48.dp),
-        ) {
-            if (loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "DuckDuckGo",
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp),
                     color = MaterialTheme.colorScheme.primary,
                 )
-            } else {
-                Icon(
-                    BrowserIcons.Refresh,
-                    contentDescription = "Обновить выдачу",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(19.dp),
+            }
+            IconButton(
+                onClick = {
+                    if (!loading) {
+                        haptics.tap()
+                        onRetry()
+                    }
+                },
+                enabled = !loading,
+                modifier = Modifier.size(48.dp),
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                } else {
+                    Icon(
+                        BrowserIcons.Refresh,
+                        contentDescription = "Обновить выдачу",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    haptics.tap()
+                    onEditQuery()
+                }
+                .padding(start = 20.dp, end = 12.dp, top = 1.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    state.query,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    summaryLabel(state),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        MimoIcons.Edit,
+                        contentDescription = "Изменить запрос",
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }
@@ -198,12 +233,21 @@ private fun LoadingBody() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(30.dp),
-            strokeWidth = 2.4.dp,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(14.dp))
+        Surface(
+            modifier = Modifier.size(66.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                MimoLogo(
+                    Modifier.size(38.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    accent = MaterialTheme.colorScheme.secondary,
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
         Text(
             "Ищем в DuckDuckGo…",
             style = MaterialTheme.typography.titleSmall,
@@ -211,10 +255,10 @@ private fun LoadingBody() {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Показываем только результаты, без страницы поисковика.",
+            "Только результаты, без страницы поисковика.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -241,6 +285,7 @@ private fun ErrorBody(
             "DuckDuckGo не ответил. Можно повторить или открыть его страницу.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(18.dp))
         Surface(
@@ -298,6 +343,7 @@ private fun EmptyBody(
             "По запросу «$query» DuckDuckGo ничего не вернул.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(18.dp))
         Surface(
@@ -336,33 +382,14 @@ private fun EmptyBody(
 private fun ResultsList(
     results: List<DuckResult>,
     onOpenResult: (String) -> Unit,
+    onEditQuery: () -> Unit,
     onOpenFallback: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 118.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 118.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "header") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "DuckDuckGo",
-                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    resultsLabel(results.size),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
         itemsIndexed(results, key = { _, result -> result.url }) { index, result ->
             DuckResultCard(
                 result = result,
@@ -371,31 +398,11 @@ private fun ResultsList(
             )
         }
         item(key = "footer") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Источник — DuckDuckGo. Реклама не показывается.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                )
-                Spacer(Modifier.weight(1f))
-                Surface(
-                    onClick = onOpenFallback,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ) {
-                    Text(
-                        "Открыть сайт",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    )
-                }
-            }
+            ResultsFooter(
+                count = results.size,
+                onEditQuery = onEditQuery,
+                onOpenFallback = onOpenFallback,
+            )
         }
     }
 }
@@ -425,52 +432,147 @@ private fun DuckResultCard(
                 offsetY = 14.dp,
                 maxStaggerIndex = 8,
             ),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+        ),
+    ) {
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SiteBadge(url = result.url, size = 32.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        result.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        host,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            BrowserIcons.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                }
+            }
+            if (result.snippet.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    result.snippet,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultsFooter(
+    count: Int,
+    onEditQuery: () -> Unit,
+    onOpenFallback: () -> Unit,
+) {
+    val haptics = LocalMimoHaptics.current
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
         ),
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SiteBadge(url = result.url, size = 32.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    host,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    BrowserIcons.ArrowForward,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-            Spacer(Modifier.height(8.dp))
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Text(
-                result.title,
+                "Это все результаты",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
-            if (result.snippet.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    result.snippet,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "DuckDuckGo вернул ${resultsLabel(count)}. Можно уточнить запрос или открыть сайт.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    onClick = {
+                        haptics.tap()
+                        onEditQuery()
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Text(
+                        "Новый запрос",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+                Surface(
+                    onClick = {
+                        haptics.tap()
+                        onOpenFallback()
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    ),
+                ) {
+                    Text(
+                        "Открыть сайт",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
             }
         }
+    }
+}
+
+private fun summaryLabel(state: DuckSearchState): String = when (state) {
+    is DuckSearchState.Loading -> "Ищем результаты…"
+    is DuckSearchState.Failed -> "Не удалось загрузить выдачу"
+    is DuckSearchState.Ready -> if (state.results.isEmpty()) {
+        "Ничего не найдено"
+    } else {
+        "${resultsLabel(state.results.size)} · без рекламы"
     }
 }
 
