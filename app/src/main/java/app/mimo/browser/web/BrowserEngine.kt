@@ -637,21 +637,24 @@ class BrowserEngine(
   }
   try {
     var dark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var base=dark?'rgba(18,21,19,0.62)':'rgba(250,245,237,0.62)';
-    function strip(id,top,height){
+    var blurSupported=!!(window.CSS && CSS.supports && (CSS.supports('backdrop-filter','blur(2px)') || CSS.supports('-webkit-backdrop-filter','blur(2px)')));
+    var base=dark
+      ? (blurSupported?'rgba(18,21,19,0.16)':'rgba(18,21,19,0.66)')
+      : (blurSupported?'rgba(250,245,237,0.11)':'rgba(250,245,237,0.60)');
+    function strip(id,top,height,blur){
       var e=document.createElement('div'); e.id=id;
       var st=e.style;
       st.position='fixed'; st.left='0'; st.right='0'; st.height=height+'px';
       if(top){ st.top='0'; } else { st.bottom='0'; }
       st.pointerEvents='none'; st.zIndex='2147483647';
       st.background=base;
-      st.backdropFilter='blur(26px) saturate(1.15)';
-      st.webkitBackdropFilter='blur(26px) saturate(1.15)';
+      st.backdropFilter='blur('+blur+'px) saturate(1.25)';
+      st.webkitBackdropFilter='blur('+blur+'px) saturate(1.25)';
       (document.body||document.documentElement).appendChild(e);
       return e;
     }
-    var topEl=strip('mimo-top-blur',true,110);
-    strip('mimo-bottom-blur',false,112);
+    var topEl=strip('mimo-top-blur',true,110,48);
+    strip('mimo-bottom-blur',false,112,36);
     window.__mimoTopBlur=function(v){ if(topEl) topEl.style.display=v?'block':'none'; };
     return 'ok';
   } catch(e) { return 'err'; }

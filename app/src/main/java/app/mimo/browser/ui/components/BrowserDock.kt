@@ -212,7 +212,7 @@ fun BrowserSurfaceHost(
                 shape = RoundedCornerShape(corner),
                 color = when {
                     menuGlass -> Color.Transparent
-                    dockGlass -> surfaceColor.copy(alpha = 0.30f)
+                    dockGlass -> surfaceColor.copy(alpha = 0.14f)
                     else -> surfaceColor.copy(alpha = 1f)
                 },
                 border = BorderStroke(

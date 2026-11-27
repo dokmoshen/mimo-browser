@@ -78,7 +78,7 @@ fun BrowserAddressBar(
                 .height(54.dp)
                 .pressScale(interaction, 0.985f),
             shape = CircleShape,
-            color = if (glass) surfaceColor.copy(alpha = 0.30f) else surfaceColor.copy(alpha = 1f),
+            color = if (glass) surfaceColor.copy(alpha = 0.14f) else surfaceColor.copy(alpha = 1f),
             border = BorderStroke(
                 1.dp,
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
