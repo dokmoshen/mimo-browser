@@ -296,6 +296,7 @@ private fun BrowserRootContent(
             bookmarks = bookmarks,
             recentHistory = recentHistory,
             bookmarked = bookmarked,
+            onChromeVisibilityChanged = { viewModel.setTopBlurVisible(it) },
             onOpenOmnibox = { viewModel.openOmnibox() },
             onOpenBookmark = { viewModel.openUrl(it.url) },
             onOpenHistory = { viewModel.openUrl(it.url) },
@@ -325,6 +326,7 @@ private fun BrowserRootContent(
                 hasPage = activeState?.isHome == false,
                 backdrop = glassBackdrop,
                 pageBlurred = pageBlurred,
+                pageGlass = settings.interfaceBlur && activeState?.chromeBlurred == true,
                 solidBackground = activeState?.error != null,
                 onDismiss = { viewModel.menuOpen.value = false },
                 onMenuClick = {

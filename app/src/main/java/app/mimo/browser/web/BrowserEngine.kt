@@ -59,6 +59,7 @@ data class TabState(
     val canGoForward: Boolean = false,
     val isSecure: Boolean = false,
     val isDesktop: Boolean = false,
+    val chromeBlurred: Boolean = false,
     val error: PageFailure? = null,
 ) {
     val isHome: Boolean get() = UrlKit.isHome(url)
@@ -390,6 +391,24 @@ class BrowserEngine(
             userAgentString = if (settings.desktopMode) DESKTOP_USER_AGENT else defaultUserAgent
         }
         tab.update { it.copy(isDesktop = settings.desktopMode) }
+        applyChromeBlur(tab)
+    }
+
+    fun setTopBlurVisible(visible: Boolean) {
+        _activeTab.value?.webView?.evaluateJavascript(
+            "if(window.__mimoTopBlur)window.__mimoTopBlur($visible);",
+            null,
+        )
+    }
+
+    private fun applyChromeBlur(tab: BrowserTab) {
+        val enabled = settings.interfaceBlur && UrlKit.isHttp(tab.webView.url.orEmpty())
+        tab.webView.evaluateJavascript(
+            if (enabled) INSTALL_CHROME_BLUR_JS else REMOVE_CHROME_BLUR_JS,
+        ) { result ->
+            val applied = enabled && result?.contains("ok") == true
+            tab.update { it.copy(chromeBlurred = applied) }
+        }
     }
 
     private fun launchExternal(url: String): Boolean {
@@ -431,6 +450,7 @@ class BrowserEngine(
                     title = "",
                     favicon = null,
                     isLoading = true,
+                    chromeBlurred = false,
                     progress = 0,
                     error = null,
                     isSecure = UrlKit.isSecure(url.orEmpty()),
@@ -459,6 +479,7 @@ class BrowserEngine(
                     history.recordVisit(current, pageTitle)
                 }
             }
+            applyChromeBlur(tab)
         }
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -607,6 +628,44 @@ class BrowserEngine(
     }
 
     companion object {
+        private const val INSTALL_CHROME_BLUR_JS = """
+(function(){
+  if(window.__mimoTopBlur){
+    var existing=document.getElementById('mimo-top-blur');
+    if(existing) existing.style.display='block';
+    return 'ok';
+  }
+  try {
+    var dark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var base=dark?'rgba(18,21,19,0.62)':'rgba(250,245,237,0.62)';
+    function strip(id,top,height){
+      var e=document.createElement('div'); e.id=id;
+      var st=e.style;
+      st.position='fixed'; st.left='0'; st.right='0'; st.height=height+'px';
+      if(top){ st.top='0'; } else { st.bottom='0'; }
+      st.pointerEvents='none'; st.zIndex='2147483647';
+      st.background=base;
+      st.backdropFilter='blur(26px) saturate(1.15)';
+      st.webkitBackdropFilter='blur(26px) saturate(1.15)';
+      (document.body||document.documentElement).appendChild(e);
+      return e;
+    }
+    var topEl=strip('mimo-top-blur',true,110);
+    strip('mimo-bottom-blur',false,112);
+    window.__mimoTopBlur=function(v){ if(topEl) topEl.style.display=v?'block':'none'; };
+    return 'ok';
+  } catch(e) { return 'err'; }
+})();
+"""
+        private const val REMOVE_CHROME_BLUR_JS = """
+(function(){
+  var s=document.getElementById('mimo-glass-style'); if(s) s.remove();
+  ['mimo-top-blur','mimo-bottom-blur'].forEach(function(id){
+    var e=document.getElementById(id); if(e) e.remove();
+  });
+  window.__mimoTopBlur=null;
+})();
+"""
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"

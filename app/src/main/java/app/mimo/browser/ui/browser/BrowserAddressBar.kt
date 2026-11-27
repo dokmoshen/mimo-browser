@@ -37,6 +37,7 @@ import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.components.BrowserIcons
 import app.mimo.browser.ui.components.MimoIcons
 import app.mimo.browser.ui.components.pressScale
+import app.mimo.browser.ui.theme.LocalInterfaceBlur
 import app.mimo.browser.web.TabState
 
 @Composable
@@ -64,6 +65,8 @@ fun BrowserAddressBar(
     ) {
         val haptics = LocalMimoHaptics.current
         val interaction = remember { MutableInteractionSource() }
+        val glass = LocalInterfaceBlur.current && state.chromeBlurred
+        val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
         Surface(
             onClick = {
                 haptics.tap()
@@ -75,14 +78,15 @@ fun BrowserAddressBar(
                 .height(54.dp)
                 .pressScale(interaction, 0.985f),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f),
+            color = if (glass) surfaceColor.copy(alpha = 0.30f) else surfaceColor.copy(alpha = 1f),
             border = BorderStroke(
                 1.dp,
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
             ),
-            shadowElevation = 8.dp,
+            shadowElevation = 0.dp,
         ) {
             Box(Modifier.fillMaxSize()) {
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()

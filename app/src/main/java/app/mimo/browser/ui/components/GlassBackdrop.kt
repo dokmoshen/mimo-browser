@@ -89,4 +89,3 @@ private fun DrawScope.drawBackdrop(backdrop: GlassBackdrop, panel: Rect) {
         filterQuality = FilterQuality.High,
     )
 }
-

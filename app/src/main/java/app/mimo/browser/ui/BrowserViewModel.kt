@@ -306,6 +306,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun stop() = engine.stop()
     fun goHome() = engine.goHome()
 
+    fun setTopBlurVisible(visible: Boolean) = engine.setTopBlurVisible(visible)
+
     fun retry() {
         val state = activeState.value ?: return
         state.error?.url?.let { engine.openUrl(it) }

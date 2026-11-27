@@ -85,6 +85,7 @@ fun BrowserSurfaceHost(
     hasPage: Boolean,
     backdrop: GlassBackdrop? = null,
     pageBlurred: Boolean = false,
+    pageGlass: Boolean = false,
     solidBackground: Boolean = false,
     onDismiss: () -> Unit,
     onMenuClick: () -> Unit,
@@ -114,12 +115,22 @@ fun BrowserSurfaceHost(
         animationSpec = tween(280, easing = FastOutSlowInEasing),
         label = "browserGlassProgress",
     )
-    val glassActive = blurEnabled && !solidBackground && panelProgress > 0.02f
-    val showBackdrop = glassActive && !pageBlurred && backdrop != null && screen != null
+    val menuGlass = blurEnabled && !solidBackground && panelProgress > 0.02f
+    val dockGlass = !expanded && blurEnabled && pageGlass && !solidBackground
+    val glassActive = menuGlass || dockGlass
+    val showBackdrop = menuGlass && !pageBlurred && backdrop != null && screen != null
     val dark = LocalMimoDark.current
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val tintStart = surfaceColor.copy(alpha = if (dark) 0.30f else 0.20f)
-    val tintEnd = surfaceColor.copy(alpha = if (dark) 0.44f else 0.32f)
+    val menuStartAlpha = when {
+        pageBlurred -> if (dark) 0.52f else 0.44f
+        else -> if (dark) 0.84f else 0.78f
+    }
+    val menuTint = Brush.verticalGradient(
+        listOf(
+            surfaceColor.copy(alpha = menuStartAlpha),
+            surfaceColor.copy(alpha = menuStartAlpha + 0.12f),
+        ),
+    )
 
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -199,7 +210,11 @@ fun BrowserSurfaceHost(
                         )
                     },
                 shape = RoundedCornerShape(corner),
-                color = if (glassActive) Color.Transparent else surfaceColor.copy(alpha = 1f),
+                color = when {
+                    menuGlass -> Color.Transparent
+                    dockGlass -> surfaceColor.copy(alpha = 0.30f)
+                    else -> surfaceColor.copy(alpha = 1f)
+                },
                 border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
@@ -217,26 +232,30 @@ fun BrowserSurfaceHost(
                         .fillMaxSize()
                         .clip(panelShape),
                 ) {
-                    if (showBackdrop && backdrop != null && screen != null) {
-                        GlassBackdropLayer(
-                            backdrop = backdrop,
-                            panel = screen,
-                            blurRadius = 30.dp,
-                            tint = Brush.verticalGradient(listOf(tintStart, tintEnd)),
-                            modifier = Modifier.matchParentSize(),
-                        )
-                    } else if (glassActive) {
-                        Box(
-                            Modifier
-                                .matchParentSize()
-                                .background(Brush.verticalGradient(listOf(tintStart, tintEnd))),
-                        )
-                    } else {
-                        Box(
-                            Modifier
-                                .matchParentSize()
-                                .background(surfaceColor.copy(alpha = 1f)),
-                        )
+                    when {
+                        showBackdrop && backdrop != null && screen != null -> {
+                            GlassBackdropLayer(
+                                backdrop = backdrop,
+                                panel = screen,
+                                blurRadius = 42.dp,
+                                tint = menuTint,
+                                modifier = Modifier.matchParentSize(),
+                            )
+                        }
+                        menuGlass -> {
+                            Box(
+                                Modifier
+                                    .matchParentSize()
+                                    .background(menuTint),
+                            )
+                        }
+                        else -> {
+                            Box(
+                                Modifier
+                                    .matchParentSize()
+                                    .background(surfaceColor.copy(alpha = 1f)),
+                            )
+                        }
                     }
                     Canvas(Modifier.fillMaxSize()) {
                         val radius = size.maxDimension * (0.10f + 0.65f * origin)
@@ -430,6 +449,7 @@ private fun MenuContent(
     hasPage: Boolean,
     backdrop: GlassBackdrop? = null,
     pageBlurred: Boolean = false,
+    pageGlass: Boolean = false,
     solidBackground: Boolean = false,
     onDismiss: () -> Unit,
     onBookmarks: () -> Unit,

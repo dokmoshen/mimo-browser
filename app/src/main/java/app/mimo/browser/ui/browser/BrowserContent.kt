@@ -50,6 +50,7 @@ import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.components.BrowserArt
 import app.mimo.browser.ui.components.BrowserIllustration
 import app.mimo.browser.ui.components.MimoBackdrop
+import app.mimo.browser.ui.theme.LocalInterfaceBlur
 import app.mimo.browser.ui.components.MimoIcons
 import app.mimo.browser.web.BrowserTab
 import app.mimo.browser.web.TabState
@@ -62,6 +63,7 @@ fun BrowserContent(
     bookmarks: List<BookmarkEntity>,
     recentHistory: List<HistoryEntity>,
     bookmarked: Boolean,
+    onChromeVisibilityChanged: (Boolean) -> Unit = {},
     onOpenOmnibox: () -> Unit,
     onOpenBookmark: (BookmarkEntity) -> Unit,
     onOpenHistory: (HistoryEntity) -> Unit,
@@ -106,6 +108,9 @@ fun BrowserContent(
     LaunchedEffect(state.error) {
         if (state.error != null) chromeVisible = true
     }
+    LaunchedEffect(chromeVisible) {
+        onChromeVisibilityChanged(chromeVisible)
+    }
 
     if (state.isHome) {
         MimoBackdrop {
@@ -127,20 +132,22 @@ fun BrowserContent(
             WebViewHost(tab = tab, modifier = Modifier.fillMaxSize())
         }
 
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(88.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.80f),
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.38f),
-                            Color.Transparent,
+        if (!LocalInterfaceBlur.current || state.error != null) {
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(88.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.80f),
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.38f),
+                                Color.Transparent,
+                            ),
                         ),
                     ),
-                ),
-        )
+            )
+        }
 
         val addressVisible = chromeVisible && state.error == null
         Column(
