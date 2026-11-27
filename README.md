@@ -5,6 +5,7 @@
 палитрой, пружинными анимациями и крупной типографикой. Без аккаунта, без
 облака и без лишнего шума.
 
+[Сайт](https://dokmoshen.github.io/mimo/browser.html) ·
 [Скачать APK](https://github.com/dokmoshen/mimo-browser/releases/latest/download/mimo-browser.apk) ·
 [GitHub Releases](https://github.com/dokmoshen/mimo-browser/releases) ·
 GPL-3.0 · Android 9+
