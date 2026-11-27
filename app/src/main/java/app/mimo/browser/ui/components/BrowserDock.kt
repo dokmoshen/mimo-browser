@@ -1,5 +1,6 @@
 package app.mimo.browser.ui.components
 
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -84,6 +85,7 @@ fun BrowserSurfaceHost(
     desktopMode: Boolean,
     hasPage: Boolean,
     backdrop: GlassBackdrop? = null,
+    onDockBounds: (Rect?) -> Unit = {},
     pageBlurred: Boolean = false,
     pageGlass: Boolean = false,
     solidBackground: Boolean = false,
@@ -129,6 +131,25 @@ fun BrowserSurfaceHost(
         listOf(
             surfaceColor.copy(alpha = menuStartAlpha),
             surfaceColor.copy(alpha = menuStartAlpha + 0.12f),
+        ),
+    )
+    val strongTint = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+    val dockTint = Brush.verticalGradient(
+        listOf(
+            surfaceColor.copy(
+                alpha = when {
+                    strongTint -> if (dark) 0.92f else 0.95f
+                    dark -> 0.36f
+                    else -> 0.40f
+                },
+            ),
+            surfaceColor.copy(
+                alpha = when {
+                    strongTint -> if (dark) 0.95f else 0.97f
+                    dark -> 0.48f
+                    else -> 0.50f
+                },
+            ),
         ),
     )
 
@@ -208,11 +229,22 @@ fun BrowserSurfaceHost(
                             right = location[0] + position.x + coordinates.size.width,
                             bottom = location[1] + position.y + coordinates.size.height,
                         )
+                        onDockBounds(
+                            if (expanded) {
+                                null
+                            } else {
+                                Rect(
+                                    left = position.x,
+                                    top = position.y,
+                                    right = position.x + coordinates.size.width,
+                                    bottom = position.y + coordinates.size.height,
+                                )
+                            },
+                        )
                     },
                 shape = RoundedCornerShape(corner),
                 color = when {
-                    menuGlass -> Color.Transparent
-                    dockGlass -> Color.Transparent
+                    menuGlass || dockGlass -> Color.Transparent
                     else -> surfaceColor.copy(alpha = 1f)
                 },
                 border = BorderStroke(
@@ -247,6 +279,13 @@ fun BrowserSurfaceHost(
                                 Modifier
                                     .matchParentSize()
                                     .background(menuTint),
+                            )
+                        }
+                        dockGlass -> {
+                            Box(
+                                Modifier
+                                    .matchParentSize()
+                                    .background(dockTint),
                             )
                         }
                         else -> {

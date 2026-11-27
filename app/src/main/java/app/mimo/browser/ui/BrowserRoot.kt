@@ -58,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -80,6 +81,7 @@ import app.mimo.browser.preferences.ThemeMode
 import app.mimo.browser.ui.browser.BrowserContent
 import app.mimo.browser.ui.browser.BrowserOmnibox
 import app.mimo.browser.ui.browser.BrowserTabsScreen
+import app.mimo.browser.ui.browser.createChromeBlurEffect
 import app.mimo.browser.ui.components.AnimatedMimoMark
 import app.mimo.browser.ui.components.BrowserPanelMode
 import app.mimo.browser.ui.components.BrowserSurfaceHost
@@ -174,6 +176,8 @@ private fun BrowserRootContent(
     val jsDialog by viewModel.jsDialog.collectAsStateWithLifecycle()
 
     val dockVisible = destination == Destination.Browser && !omniboxOpen && !tabsOpen
+    var addressBarBounds by remember { mutableStateOf<Rect?>(null) }
+    var dockBounds by remember { mutableStateOf<Rect?>(null) }
     var holdPageBlur by remember { mutableStateOf(false) }
     LaunchedEffect(menuOpen, activeState?.isHome) {
         if (menuOpen) {
@@ -187,16 +191,37 @@ private fun BrowserRootContent(
         activeState?.isHome == false && activeState?.error == null &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val blurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
-    LaunchedEffect(pageBlurred, activeTab?.id) {
+    val density = LocalDensity.current.density
+    val chromeBlur = settings.interfaceBlur &&
+        activeState?.isHome == false && activeState?.error == null
+    LaunchedEffect(
+        pageBlurred,
+        chromeBlur,
+        activeTab?.id,
+        addressBarBounds,
+        dockBounds,
+        density,
+    ) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val webView = activeTab?.webView
-            webView?.setRenderEffect(
-                if (pageBlurred) {
-                    RenderEffect.createBlurEffect(blurRadiusPx, blurRadiusPx, Shader.TileMode.CLAMP)
-                } else {
-                    null
-                },
-            )
+            val webView = activeTab?.webView ?: return@LaunchedEffect
+            if (webView.width <= 0 || webView.height <= 0) return@LaunchedEffect
+            val effect = when {
+                pageBlurred -> RenderEffect.createBlurEffect(
+                    blurRadiusPx,
+                    blurRadiusPx,
+                    Shader.TileMode.CLAMP,
+                )
+                chromeBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+                    createChromeBlurEffect(
+                        width = webView.width,
+                        height = webView.height,
+                        density = density,
+                        addressBar = addressBarBounds,
+                        dock = dockBounds,
+                    )
+                else -> null
+            }
+            webView.setRenderEffect(effect)
         }
     }
     DisposableEffect(Unit) {
@@ -296,12 +321,12 @@ private fun BrowserRootContent(
             bookmarks = bookmarks,
             recentHistory = recentHistory,
             bookmarked = bookmarked,
-            onChromeVisibilityChanged = { viewModel.setTopBlurVisible(it) },
             onOpenOmnibox = { viewModel.openOmnibox() },
             onOpenBookmark = { viewModel.openUrl(it.url) },
             onOpenHistory = { viewModel.openUrl(it.url) },
             onOpenLibrary = { viewModel.openLibrary(it) },
             onOpenSettings = { viewModel.openSettings() },
+            onAddressBarBounds = { addressBarBounds = it },
             onReload = { viewModel.reload() },
             onStop = { viewModel.stop() },
             onBookmark = { viewModel.toggleBookmark() },
@@ -325,8 +350,10 @@ private fun BrowserRootContent(
                 desktopMode = settings.desktopMode,
                 hasPage = activeState?.isHome == false,
                 backdrop = glassBackdrop,
+                onDockBounds = { dockBounds = it },
                 pageBlurred = pageBlurred,
-                pageGlass = settings.interfaceBlur && activeState?.chromeBlurred == true,
+                pageGlass = settings.interfaceBlur &&
+                    activeState?.isHome == false && activeState?.error == null,
                 solidBackground = activeState?.error != null,
                 onDismiss = { viewModel.menuOpen.value = false },
                 onMenuClick = {

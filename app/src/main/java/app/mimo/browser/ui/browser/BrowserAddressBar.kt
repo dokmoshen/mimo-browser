@@ -1,5 +1,6 @@
 package app.mimo.browser.ui.browser
 
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -8,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -30,6 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +45,7 @@ import app.mimo.browser.ui.components.BrowserIcons
 import app.mimo.browser.ui.components.MimoIcons
 import app.mimo.browser.ui.components.pressScale
 import app.mimo.browser.ui.theme.LocalInterfaceBlur
+import app.mimo.browser.ui.theme.LocalMimoDark
 import app.mimo.browser.web.TabState
 
 @Composable
@@ -46,6 +53,7 @@ fun BrowserAddressBar(
     state: TabState,
     bookmarked: Boolean,
     visible: Boolean,
+    onBoundsChanged: (Rect?) -> Unit = {},
     onOpenOmnibox: () -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
@@ -62,11 +70,13 @@ fun BrowserAddressBar(
             animationSpec = tween(200, easing = FastOutSlowInEasing),
             targetOffsetY = { -it / 2 },
         ),
-        modifier = modifier,
+        modifier = modifier.onGloballyPositioned { coordinates ->
+            onBoundsChanged(if (visible) coordinates.boundsInRoot() else null)
+        },
     ) {
         val haptics = LocalMimoHaptics.current
         val interaction = remember { MutableInteractionSource() }
-        val glass = LocalInterfaceBlur.current && state.chromeBlurred
+        val glass = LocalInterfaceBlur.current && state.error == null && !state.isHome
         val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
         Surface(
             onClick = {
@@ -87,6 +97,38 @@ fun BrowserAddressBar(
             shadowElevation = 0.dp,
         ) {
             Box(Modifier.fillMaxSize()) {
+                if (glass) {
+                    val dark = LocalMimoDark.current
+                    val strong = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        surfaceColor.copy(
+                                            alpha = if (strong) {
+                                                if (dark) 0.90f else 0.94f
+                                            } else if (dark) {
+                                                0.34f
+                                            } else {
+                                                0.40f
+                                            },
+                                        ),
+                                        surfaceColor.copy(
+                                            alpha = if (strong) {
+                                                if (dark) 0.94f else 0.97f
+                                            } else if (dark) {
+                                                0.46f
+                                            } else {
+                                                0.52f
+                                            },
+                                        ),
+                                    ),
+                                ),
+                            ),
+                    )
+                }
 
                 Row(
                     modifier = Modifier

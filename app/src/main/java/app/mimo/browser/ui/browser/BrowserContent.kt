@@ -63,12 +63,12 @@ fun BrowserContent(
     bookmarks: List<BookmarkEntity>,
     recentHistory: List<HistoryEntity>,
     bookmarked: Boolean,
-    onChromeVisibilityChanged: (Boolean) -> Unit = {},
     onOpenOmnibox: () -> Unit,
     onOpenBookmark: (BookmarkEntity) -> Unit,
     onOpenHistory: (HistoryEntity) -> Unit,
     onOpenLibrary: (LibraryTab) -> Unit,
     onOpenSettings: () -> Unit,
+    onAddressBarBounds: (androidx.compose.ui.geometry.Rect?) -> Unit = {},
     onReload: () -> Unit,
     onStop: () -> Unit,
     onBookmark: () -> Unit,
@@ -107,9 +107,6 @@ fun BrowserContent(
     }
     LaunchedEffect(state.error) {
         if (state.error != null) chromeVisible = true
-    }
-    LaunchedEffect(chromeVisible) {
-        onChromeVisibilityChanged(chromeVisible)
     }
 
     if (state.isHome) {
@@ -160,6 +157,7 @@ fun BrowserContent(
                 state = state,
                 bookmarked = bookmarked,
                 visible = addressVisible,
+                onBoundsChanged = onAddressBarBounds,
                 onOpenOmnibox = onOpenOmnibox,
                 onReload = onReload,
                 onStop = onStop,
