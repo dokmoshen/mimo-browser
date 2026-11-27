@@ -85,6 +85,7 @@ fun BrowserSurfaceHost(
     hasPage: Boolean,
     backdrop: GlassBackdrop? = null,
     pageBlurred: Boolean = false,
+    solidBackground: Boolean = false,
     onDismiss: () -> Unit,
     onMenuClick: () -> Unit,
     onBack: () -> Unit,
@@ -113,7 +114,7 @@ fun BrowserSurfaceHost(
         animationSpec = tween(280, easing = FastOutSlowInEasing),
         label = "browserGlassProgress",
     )
-    val glassActive = blurEnabled && panelProgress > 0.02f
+    val glassActive = blurEnabled && !solidBackground && panelProgress > 0.02f
     val showBackdrop = glassActive && !pageBlurred && backdrop != null && screen != null
     val dark = LocalMimoDark.current
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -168,11 +169,15 @@ fun BrowserSurfaceHost(
                 animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
                 label = "browserPanelOrigin",
             )
-            val dockAlpha = if (expanded) {
-                (1f - ((height.value - 68f) / 80f)).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
+            val dockAlpha by animateFloatAsState(
+                targetValue = if (expanded) 0f else 1f,
+                animationSpec = if (expanded) {
+                    tween(120, delayMillis = 220, easing = FastOutSlowInEasing)
+                } else {
+                    tween(0)
+                },
+                label = "browserDockAlpha",
+            )
 
             Surface(
                 modifier = Modifier
@@ -425,6 +430,7 @@ private fun MenuContent(
     hasPage: Boolean,
     backdrop: GlassBackdrop? = null,
     pageBlurred: Boolean = false,
+    solidBackground: Boolean = false,
     onDismiss: () -> Unit,
     onBookmarks: () -> Unit,
     onHistory: () -> Unit,

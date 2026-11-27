@@ -184,7 +184,8 @@ private fun BrowserRootContent(
         }
     }
     val pageBlurred = (menuOpen || holdPageBlur) && settings.interfaceBlur &&
-        activeState?.isHome == false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        activeState?.isHome == false && activeState?.error == null &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val blurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
     LaunchedEffect(pageBlurred, activeTab?.id) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -324,6 +325,7 @@ private fun BrowserRootContent(
                 hasPage = activeState?.isHome == false,
                 backdrop = glassBackdrop,
                 pageBlurred = pageBlurred,
+                solidBackground = activeState?.error != null,
                 onDismiss = { viewModel.menuOpen.value = false },
                 onMenuClick = {
                     if (!menuOpen) {
