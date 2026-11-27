@@ -168,7 +168,6 @@ private fun BrowserRootContent(
     val tabs by viewModel.snapshots.collectAsStateWithLifecycle()
     val bookmarked by viewModel.isBookmarked.collectAsStateWithLifecycle()
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
-    val recentHistory by viewModel.recentHistory.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val downloads by viewModel.downloads.collectAsStateWithLifecycle()
     val bookmarkCount by viewModel.bookmarkCount.collectAsStateWithLifecycle()
@@ -321,14 +320,8 @@ private fun BrowserRootContent(
         BrowserContent(
             tab = activeTab,
             state = activeState,
-            bookmarks = bookmarks,
-            recentHistory = recentHistory,
             bookmarked = bookmarked,
             onOpenOmnibox = { viewModel.openOmnibox() },
-            onOpenBookmark = { viewModel.openUrl(it.url) },
-            onOpenHistory = { viewModel.openUrl(it.url) },
-            onOpenLibrary = { viewModel.openLibrary(it) },
-            onOpenSettings = { viewModel.openSettings() },
             onAddressBarBounds = { addressBarBounds = it },
             onReload = { viewModel.reload() },
             onStop = { viewModel.stop() },

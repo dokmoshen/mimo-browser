@@ -66,9 +66,6 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.FrameLayout
-import app.mimo.browser.data.BookmarkEntity
-import app.mimo.browser.data.HistoryEntity
-import app.mimo.browser.ui.LibraryTab
 import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.components.BrowserArt
 import app.mimo.browser.ui.components.BrowserIllustration
@@ -84,14 +81,8 @@ import app.mimo.browser.web.UrlKit
 fun BrowserContent(
     tab: BrowserTab?,
     state: TabState?,
-    bookmarks: List<BookmarkEntity>,
-    recentHistory: List<HistoryEntity>,
     bookmarked: Boolean,
     onOpenOmnibox: () -> Unit,
-    onOpenBookmark: (BookmarkEntity) -> Unit,
-    onOpenHistory: (HistoryEntity) -> Unit,
-    onOpenLibrary: (LibraryTab) -> Unit,
-    onOpenSettings: () -> Unit,
     onAddressBarBounds: (androidx.compose.ui.geometry.Rect?) -> Unit = {},
     onReload: () -> Unit,
     onStop: () -> Unit,
@@ -206,15 +197,7 @@ fun BrowserContent(
 
     if (state.isHome) {
         MimoBackdrop {
-            BrowserHomeScreen(
-                bookmarks = bookmarks,
-                recentHistory = recentHistory,
-                onOpenOmnibox = onOpenOmnibox,
-                onOpenBookmark = onOpenBookmark,
-                onOpenHistory = onOpenHistory,
-                onOpenLibrary = onOpenLibrary,
-                onOpenSettings = onOpenSettings,
-            )
+            BrowserHomeScreen(onOpenOmnibox = onOpenOmnibox)
         }
         return
     }
