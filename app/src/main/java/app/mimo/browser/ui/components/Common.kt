@@ -1,5 +1,6 @@
 package app.mimo.browser.ui.components
 
+import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import app.mimo.browser.preferences.DesignLanguage
 import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.theme.LocalAmbientTint
@@ -308,6 +310,47 @@ fun Modifier.pressScale(
     return graphicsLayer {
         scaleX = scale
         scaleY = scale
+    }
+}
+
+/**
+ * A one-shot entrance used for staggered paper-like reveals. It only changes
+ * graphics (alpha, offset, scale, tilt), so lists never reflow while it runs.
+ */
+@Composable
+fun Modifier.staggeredReveal(
+    index: Int,
+    baseDelayMs: Int = 0,
+    stepMs: Int = 35,
+    offsetY: Dp = 16.dp,
+    initialScale: Float = 0.985f,
+    startRotation: Float = 0f,
+    maxStaggerIndex: Int = 8,
+): Modifier {
+    val progress = remember { Animatable(0f) }
+    val animatorsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    LaunchedEffect(Unit) {
+        if (!animatorsEnabled) {
+            progress.snapTo(1f)
+            return@LaunchedEffect
+        }
+        delay((baseDelayMs + index.coerceAtMost(maxStaggerIndex) * stepMs).toLong())
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = 0.78f,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+    }
+    return graphicsLayer {
+        val value = progress.value
+        alpha = value.coerceIn(0f, 1f)
+        translationY = (1f - value) * offsetY.toPx()
+        val scale = initialScale + (1f - initialScale) * value
+        scaleX = scale
+        scaleY = scale
+        rotationZ = startRotation * (1f - value)
     }
 }
 

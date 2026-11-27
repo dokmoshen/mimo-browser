@@ -17,6 +17,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -60,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -336,7 +339,20 @@ private fun BrowserRootContent(
 
         AnimatedVisibility(
             visible = dockVisible,
-            enter = fadeIn(tween(180)),
+            enter = fadeIn(tween(180)) + scaleIn(
+                initialScale = 0.92f,
+                transformOrigin = TransformOrigin(0.5f, 1f),
+                animationSpec = spring(
+                    dampingRatio = 0.68f,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ) + slideInVertically(
+                animationSpec = spring(
+                    dampingRatio = 0.74f,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+                initialOffsetY = { it / 3 },
+            ),
             exit = fadeOut(tween(140)),
         ) {
             BrowserSurfaceHost(

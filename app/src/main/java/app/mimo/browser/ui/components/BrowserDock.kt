@@ -2,20 +2,27 @@ package app.mimo.browser.ui.components
 
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.theme.LocalInterfaceBlur
 import app.mimo.browser.ui.theme.LocalMimoDark
+import kotlinx.coroutines.launch
 
 enum class BrowserPanelMode { DOCK, MENU }
 
@@ -412,16 +421,42 @@ private fun DockButton(
     badge: Int? = null,
 ) {
     val haptics = LocalMimoHaptics.current
+    val scope = rememberCoroutineScope()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
     val alpha by animateFloatAsState(if (enabled) 1f else 0.32f, label = "dockEnabled")
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 1.16f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "dockIconScale",
+    )
+    val wobble = remember { Animatable(0f) }
     Box(contentAlignment = Alignment.Center) {
         IconButton(
             onClick = {
-                if (!enabled) return@IconButton
-                haptics.tap()
-                onClick()
+                if (!enabled) {
+                    haptics.reject()
+                    scope.launch {
+                        wobble.animateTo(
+                            targetValue = 0f,
+                            animationSpec = keyframes {
+                                durationMillis = 320
+                                -7f at 55
+                                6f at 145
+                                -3f at 230
+                            },
+                        )
+                    }
+                } else {
+                    haptics.tap()
+                    onClick()
+                }
             },
+            interactionSource = interaction,
             modifier = Modifier.size(46.dp),
-            enabled = enabled,
         ) {
             Icon(
                 icon,
@@ -429,23 +464,58 @@ private fun DockButton(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .size(22.dp)
-                    .graphicsLayer { this.alpha = alpha },
+                    .graphicsLayer {
+                        this.alpha = alpha
+                        scaleX = scale
+                        scaleY = scale
+                        rotationZ = wobble.value
+                    },
             )
         }
-        if (badge != null) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-3).dp, y = 3.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Text(
-                    text = if (badge > 99) "99" else badge.toString(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                )
+        AnimatedVisibility(
+            visible = badge != null,
+            enter = scaleIn(
+                initialScale = 0.45f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            ) + fadeIn(tween(120)),
+            exit = scaleOut(targetScale = 0.45f, animationSpec = tween(100)) +
+                fadeOut(tween(100)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (-3).dp, y = 3.dp),
+        ) {
+            AnimatedContent(
+                targetState = badge ?: 1,
+                transitionSpec = {
+                    (scaleIn(
+                        initialScale = 0.55f,
+                        animationSpec = spring(
+                            dampingRatio = 0.38f,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                    ) + fadeIn(tween(100))).togetherWith(
+                        scaleOut(targetScale = 0.55f, animationSpec = tween(80)) +
+                            fadeOut(tween(80)),
+                    )
+                },
+                label = "tabBadgeCount",
+            ) { value ->
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Text(
+                        text = if (value > 99) "99" else value.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                    )
+                }
             }
         }
     }
@@ -455,6 +525,15 @@ private fun DockButton(
 private fun NewTabButton(onClick: () -> Unit) {
     val haptics = LocalMimoHaptics.current
     val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val rotation by animateFloatAsState(
+        targetValue = if (pressed) 90f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "newTabRotation",
+    )
     Surface(
         onClick = {
             haptics.press()
@@ -462,7 +541,7 @@ private fun NewTabButton(onClick: () -> Unit) {
         },
         interactionSource = interaction,
         modifier = Modifier
-            .pressScale(interaction, 0.92f)
+            .pressScale(interaction, 0.90f)
             .size(54.dp),
         shape = RoundedCornerShape(19.dp),
         color = MaterialTheme.colorScheme.primary,
@@ -473,7 +552,9 @@ private fun NewTabButton(onClick: () -> Unit) {
             Icon(
                 MimoIcons.Add,
                 contentDescription = "Новая вкладка",
-                modifier = Modifier.size(26.dp),
+                modifier = Modifier
+                    .size(26.dp)
+                    .graphicsLayer { rotationZ = rotation },
             )
         }
     }
@@ -545,18 +626,21 @@ private fun MenuContent(
             icon = BrowserIcons.Bookmark,
             label = "Закладки",
             count = bookmarkCount,
+            revealIndex = 0,
             onClick = onBookmarks,
         )
         MenuRow(
             icon = MimoIcons.History,
             label = "История",
             count = historyCount,
+            revealIndex = 1,
             onClick = onHistory,
         )
         MenuRow(
             icon = MimoIcons.FileDownload,
             label = "Загрузки",
             count = downloadCount,
+            revealIndex = 2,
             onClick = onDownloads,
         )
         HorizontalDivider(
@@ -567,11 +651,13 @@ private fun MenuContent(
             MenuRow(
                 icon = MimoIcons.Share,
                 label = "Поделиться",
+                revealIndex = 3,
                 onClick = onShare,
             )
             MenuRow(
                 icon = MimoIcons.ContentCopy,
                 label = "Скопировать ссылку",
+                revealIndex = 4,
                 onClick = onCopyLink,
             )
         }
@@ -579,12 +665,14 @@ private fun MenuContent(
             icon = BrowserIcons.Desktop,
             label = "Версия для компьютера",
             checked = desktopMode,
+            revealIndex = 5,
             onClick = onToggleDesktop,
         )
         if (hasPage) {
             MenuRow(
                 icon = BrowserIcons.ExternalLink,
                 label = "Открыть в другом браузере",
+                revealIndex = 6,
                 onClick = onOpenExternal,
             )
         }
@@ -595,6 +683,7 @@ private fun MenuContent(
         MenuRow(
             icon = MimoIcons.Settings,
             label = "Настройки",
+            revealIndex = 7,
             onClick = onSettings,
         )
     }
@@ -604,12 +693,22 @@ private fun MenuContent(
 private fun MenuRow(
     icon: ImageVector,
     label: String,
+    revealIndex: Int,
     count: Int? = null,
     checked: Boolean = false,
     onClick: () -> Unit,
 ) {
     val haptics = LocalMimoHaptics.current
     val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val iconScale by animateFloatAsState(
+        targetValue = if (pressed) 0.82f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "menuIconScale",
+    )
     Surface(
         onClick = {
             haptics.tap()
@@ -617,6 +716,12 @@ private fun MenuRow(
         },
         interactionSource = interaction,
         modifier = Modifier
+            .staggeredReveal(
+                index = revealIndex,
+                baseDelayMs = 30,
+                stepMs = 28,
+                offsetY = 12.dp,
+            )
             .pressScale(interaction, 0.98f)
             .fillMaxWidth()
             .height(44.dp),
@@ -632,7 +737,12 @@ private fun MenuRow(
             Icon(
                 icon,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer {
+                        scaleX = iconScale
+                        scaleY = iconScale
+                    },
                 tint = if (checked) MaterialTheme.colorScheme.onSecondaryContainer
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )

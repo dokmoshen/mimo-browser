@@ -16,9 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -37,6 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,6 +55,7 @@ import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.components.MimoLogo
 import app.mimo.browser.ui.components.SiteBadge
 import app.mimo.browser.ui.components.pressScale
+import app.mimo.browser.ui.components.staggeredReveal
 import app.mimo.browser.ui.theme.Unbounded
 import app.mimo.browser.web.TabState
 import app.mimo.browser.web.UrlKit
@@ -122,10 +131,16 @@ fun BrowserTabsScreen(
                 item(key = "new-tab") {
                     NewTabCard(onClick = onNewTab)
                 }
-                items(tabs, key = { it.id }) { tab ->
+                itemsIndexed(
+                    items = tabs,
+                    key = { _, tab -> tab.id },
+                ) { index, tab ->
                     TabCard(
                         tab = tab,
                         active = tab.id == activeId,
+                        revealIndex = index + 1,
+                        tilt = if (index % 2 == 0) -1.4f else 1.4f,
+                        modifier = Modifier.animateItem(),
                         onClick = { onSelect(tab.id) },
                         onClose = { onClose(tab.id) },
                     )
@@ -162,33 +177,75 @@ private fun pluralTabs(count: Int): String = when {
 private fun TabCard(
     tab: TabState,
     active: Boolean,
+    revealIndex: Int,
+    tilt: Float,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onClose: () -> Unit,
 ) {
     val haptics = LocalMimoHaptics.current
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val activeProgress by animateFloatAsState(
+        targetValue = if (active) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.74f,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "activeTab",
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (active) 1.8.dp else 1.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "activeTabBorder",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (active) 6.dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "activeTabElevation",
+    )
     Surface(
         onClick = {
             haptics.tap()
             onClick()
         },
         interactionSource = interaction,
-        modifier = Modifier
+        modifier = modifier
+            .staggeredReveal(
+                index = revealIndex,
+                baseDelayMs = 40,
+                stepMs = 32,
+                offsetY = 20.dp,
+                startRotation = tilt,
+            )
             .fillMaxWidth()
             .height(174.dp)
-            .pressScale(interaction, 0.97f),
+            .pressScale(interaction, 0.97f)
+            .graphicsLayer {
+                val scale = 1f + activeProgress * 0.012f
+                scaleX = scale
+                scaleY = scale
+            },
         shape = RoundedCornerShape(26.dp),
-        color = if (active) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f)
-        },
-        border = BorderStroke(
-            if (active) 1.8.dp else 1.dp,
-            if (active) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+        color = lerp(
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+            MaterialTheme.colorScheme.primaryContainer,
+            activeProgress,
         ),
-        shadowElevation = if (active) 6.dp else 0.dp,
+        border = BorderStroke(
+            borderWidth,
+            lerp(
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                MaterialTheme.colorScheme.primary,
+                activeProgress,
+            ),
+        ),
+        shadowElevation = elevation,
     ) {
         val orbitPrimary = MaterialTheme.colorScheme.primary
         val orbitSecondary = MaterialTheme.colorScheme.secondary
@@ -312,14 +369,26 @@ private fun TabBadge(tab: TabState) {
 @Composable
 private fun NewTabCard(onClick: () -> Unit) {
     val haptics = LocalMimoHaptics.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val rotation by animateFloatAsState(
+        targetValue = if (pressed) 90f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "newTabCardRotation",
+    )
     Surface(
         onClick = {
             haptics.press()
             onClick()
         },
+        interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
-            .height(174.dp),
+            .height(174.dp)
+            .pressScale(interaction, 0.94f),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
         border = BorderStroke(
@@ -339,7 +408,13 @@ private fun NewTabCard(onClick: () -> Unit) {
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(MimoIcons.Add, contentDescription = null, modifier = Modifier.size(26.dp))
+                    Icon(
+                        MimoIcons.Add,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .graphicsLayer { rotationZ = rotation },
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))

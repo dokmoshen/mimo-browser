@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -19,6 +22,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -61,6 +68,7 @@ import app.mimo.browser.ui.util.formatBytes
 import app.mimo.browser.ui.util.formatShortDate
 import app.mimo.browser.ui.util.formatTime
 import app.mimo.browser.web.UrlKit
+import kotlin.math.abs
 
 @Composable
 fun BrowserLibraryScreen(
@@ -229,6 +237,11 @@ private fun LibrarySegments(
     onTabChange: (LibraryTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selectedIndex = when (tab) {
+        LibraryTab.BOOKMARKS -> 0
+        LibraryTab.HISTORY -> 1
+        LibraryTab.DOWNLOADS -> 2
+    }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = CircleShape,
@@ -238,28 +251,61 @@ private fun LibrarySegments(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
         ),
     ) {
-        Row(Modifier.padding(4.dp)) {
-            Segment(
-                label = "Закладки",
-                count = bookmarkCount,
-                selected = tab == LibraryTab.BOOKMARKS,
-                onClick = { onTabChange(LibraryTab.BOOKMARKS) },
-                modifier = Modifier.weight(1f),
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .height(42.dp),
+        ) {
+            val segmentWidth = maxWidth / 3
+            val pillOffset by animateDpAsState(
+                targetValue = segmentWidth * selectedIndex,
+                animationSpec = spring(
+                    dampingRatio = 0.78f,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+                label = "librarySegment",
             )
-            Segment(
-                label = "История",
-                count = historyCount,
-                selected = tab == LibraryTab.HISTORY,
-                onClick = { onTabChange(LibraryTab.HISTORY) },
-                modifier = Modifier.weight(1f),
-            )
-            Segment(
-                label = "Загрузки",
-                count = downloadCount,
-                selected = tab == LibraryTab.DOWNLOADS,
-                onClick = { onTabChange(LibraryTab.DOWNLOADS) },
-                modifier = Modifier.weight(1f),
-            )
+            Surface(
+                modifier = Modifier
+                    .offset(x = pillOffset)
+                    .width(segmentWidth)
+                    .fillMaxHeight(),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+            ) {}
+            Row(Modifier.fillMaxSize()) {
+                fun selection(index: Int): Float {
+                    val pillCenter = pillOffset.value + segmentWidth.value / 2f
+                    val segmentCenter = segmentWidth.value * (index + 0.5f)
+                    return (1f - abs(pillCenter - segmentCenter) / segmentWidth.value)
+                        .coerceIn(0f, 1f)
+                }
+                Segment(
+                    label = "Закладки",
+                    count = bookmarkCount,
+                    selected = tab == LibraryTab.BOOKMARKS,
+                    selection = selection(0),
+                    onClick = { onTabChange(LibraryTab.BOOKMARKS) },
+                    modifier = Modifier.weight(1f),
+                )
+                Segment(
+                    label = "История",
+                    count = historyCount,
+                    selected = tab == LibraryTab.HISTORY,
+                    selection = selection(1),
+                    onClick = { onTabChange(LibraryTab.HISTORY) },
+                    modifier = Modifier.weight(1f),
+                )
+                Segment(
+                    label = "Загрузки",
+                    count = downloadCount,
+                    selected = tab == LibraryTab.DOWNLOADS,
+                    selection = selection(2),
+                    onClick = { onTabChange(LibraryTab.DOWNLOADS) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -269,24 +315,29 @@ private fun Segment(
     label: String,
     count: Int,
     selected: Boolean,
+    selection: Float,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalMimoHaptics.current
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(
         onClick = {
             haptics.toggle(selected)
             onClick()
         },
-        modifier = modifier.height(42.dp),
+        interactionSource = interaction,
+        modifier = modifier
+            .fillMaxHeight()
+            .pressScale(interaction, 0.96f),
         shape = CircleShape,
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (selected) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+        color = Color.Transparent,
     ) {
+        val labelColor = lerp(
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            MaterialTheme.colorScheme.onPrimary,
+            selection,
+        )
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -294,7 +345,8 @@ private fun Segment(
             Text(
                 label,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = if (selection > 0.5f) FontWeight.Bold else FontWeight.Medium,
+                color = labelColor,
                 maxLines = 1,
             )
             if (count > 0) {
@@ -302,11 +354,7 @@ private fun Segment(
                 Text(
                     count.toString(),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    },
+                    color = labelColor.copy(alpha = 0.7f),
                 )
             }
         }
@@ -426,6 +474,7 @@ private fun BookmarksContent(
                     }
                 },
                 onClick = { onOpen(bookmark) },
+                modifier = Modifier.animateItem(),
             )
         }
     }
@@ -500,6 +549,7 @@ private fun HistoryContent(
                         }
                     },
                     onClick = { onOpen(entry) },
+                    modifier = Modifier.animateItem(),
                 )
             }
         }
@@ -543,6 +593,7 @@ private fun DownloadsContent(
                 onOpen = { onOpen(download) },
                 onShare = { onShare(download) },
                 onDelete = { onDelete(download) },
+                modifier = Modifier.animateItem(),
             )
         }
     }
@@ -555,14 +606,15 @@ private fun LibraryPageRow(
     subtitle: String,
     trailing: @Composable () -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Surface(
         onClick = onClick,
         interactionSource = interaction,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .pressScale(interaction, 0.985f),
+            .pressScale(interaction, 0.975f),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(
@@ -603,15 +655,16 @@ private fun DownloadRow(
     onOpen: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val complete = download.status == DownloadStatus.COMPLETE
     Surface(
         onClick = onOpen,
         interactionSource = interaction,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .pressScale(interaction, 0.985f),
+            .pressScale(interaction, 0.975f),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(

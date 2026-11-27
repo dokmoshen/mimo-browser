@@ -1,14 +1,25 @@
 package app.mimo.browser.ui.browser
 
+import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -19,6 +30,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -30,17 +43,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+import kotlinx.coroutines.delay
 import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.FrameLayout
 import app.mimo.browser.data.BookmarkEntity
@@ -52,6 +75,7 @@ import app.mimo.browser.ui.components.BrowserIllustration
 import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.theme.LocalInterfaceBlur
 import app.mimo.browser.ui.components.MimoIcons
+import app.mimo.browser.ui.components.MimoLogo
 import app.mimo.browser.web.BrowserTab
 import app.mimo.browser.web.TabState
 import app.mimo.browser.web.UrlKit
@@ -83,6 +107,77 @@ fun BrowserContent(
     }
 
     var chromeVisible by remember(tab.id) { mutableStateOf(true) }
+    val haptics = LocalMimoHaptics.current
+    val density = LocalDensity.current
+    val pull = remember(tab.id) { mutableFloatStateOf(0f) }
+    val pullRefresh = remember(tab.id) { mutableStateOf(false) }
+    val pullLimit = with(density) { 132.dp.toPx() }
+    val pullThreshold = with(density) { 68.dp.toPx() }
+    val reloadState = rememberUpdatedState(onReload)
+    val loadingState = rememberUpdatedState(state.isLoading)
+
+    DisposableEffect(tab.id) {
+        val webView = tab.webView
+        var downX = 0f
+        var downY = 0f
+        var tracking = false
+        var armed = false
+        val touchListener = android.view.View.OnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    tracking = webView.scrollY <= 0 && !pullRefresh.value && !loadingState.value
+                    armed = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (tracking) {
+                        val dx = event.x - downX
+                        val dy = event.y - downY
+                        if (dy > 0f && dy > abs(dx) * 1.35f) {
+                            val value = (dy * 0.55f).coerceAtMost(pullLimit)
+                            pull.floatValue = value
+                            if (!armed && value >= pullThreshold) {
+                                armed = true
+                                haptics.tick()
+                            }
+                        } else if (dy <= 0f) {
+                            pull.floatValue = 0f
+                            armed = false
+                        }
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val triggered = tracking && pull.floatValue >= pullThreshold &&
+                        event.actionMasked == MotionEvent.ACTION_UP
+                    pull.floatValue = 0f
+                    tracking = false
+                    armed = false
+                    if (triggered) {
+                        haptics.confirm()
+                        pullRefresh.value = true
+                        reloadState.value()
+                    }
+                }
+            }
+            false
+        }
+        webView.setOnTouchListener(touchListener)
+        onDispose {
+            webView.setOnTouchListener(null)
+        }
+    }
+
+    LaunchedEffect(pullRefresh.value) {
+        if (!pullRefresh.value) return@LaunchedEffect
+        delay(700)
+        val started = SystemClock.uptimeMillis()
+        while (loadingState.value && SystemClock.uptimeMillis() - started < 5_000) {
+            delay(120)
+        }
+        delay(240)
+        pullRefresh.value = false
+    }
 
     DisposableEffect(tab.id) {
         val webView = tab.webView
@@ -146,6 +241,12 @@ fun BrowserContent(
             )
         }
 
+        PullRefreshLayer(
+            pull = pull,
+            refreshing = pullRefresh,
+            threshold = pullThreshold,
+        )
+
         val addressVisible = chromeVisible && state.error == null
         Column(
             modifier = Modifier
@@ -177,6 +278,103 @@ fun BrowserContent(
                     onRetry = onRetry,
                     onGoHome = onGoHome,
                     onOpenOmnibox = onOpenOmnibox,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.PullRefreshLayer(
+    pull: androidx.compose.runtime.MutableFloatState,
+    refreshing: androidx.compose.runtime.MutableState<Boolean>,
+    threshold: Float,
+) {
+    val raw = pull.floatValue
+    val progress = (raw / threshold).coerceIn(0f, 1f)
+    val visible = refreshing.value || raw > 1f
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(140)) + scaleIn(
+            initialScale = 0.55f,
+            animationSpec = spring(
+                dampingRatio = 0.5f,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        ),
+        exit = fadeOut(tween(160)) + scaleOut(targetScale = 0.7f, animationSpec = tween(140)),
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(top = 72.dp),
+    ) {
+        val spin = if (refreshing.value) {
+            val transition = rememberInfiniteTransition(label = "pullRefreshSpin")
+            val value by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1100, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+                label = "pullRefreshRotation",
+            )
+            value
+        } else {
+            progress * 220f
+        }
+        val scale = if (refreshing.value) 1f else 0.74f + progress * 0.26f
+        Surface(
+            modifier = Modifier
+                .size(50.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            ),
+            shadowElevation = 8.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                val ringColor = MaterialTheme.colorScheme.primary
+                val trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                Canvas(Modifier.fillMaxSize()) {
+                    val stroke = 2.4.dp.toPx()
+                    val inset = stroke / 2f + 6.dp.toPx()
+                    val arcSize = Size(
+                        width = size.width - inset * 2f,
+                        height = size.height - inset * 2f,
+                    )
+                    val topLeft = Offset(inset, inset)
+                    drawArc(
+                        color = trackColor,
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round),
+                    )
+                    drawArc(
+                        color = ringColor,
+                        startAngle = if (refreshing.value) -90f + spin else -90f,
+                        sweepAngle = if (refreshing.value) 280f else 360f * progress,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round),
+                    )
+                }
+                MimoLogo(
+                    Modifier
+                        .size(23.dp)
+                        .graphicsLayer { rotationZ = spin },
+                    color = MaterialTheme.colorScheme.primary,
+                    accent = MaterialTheme.colorScheme.secondary,
                 )
             }
         }

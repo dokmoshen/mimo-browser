@@ -41,6 +41,7 @@ import app.mimo.browser.ui.components.MimoLogo
 import app.mimo.browser.ui.components.SectionHeader
 import app.mimo.browser.ui.components.SiteBadge
 import app.mimo.browser.ui.components.pressScale
+import app.mimo.browser.ui.components.staggeredReveal
 import app.mimo.browser.ui.theme.Unbounded
 import app.mimo.browser.ui.util.formatTime
 import app.mimo.browser.ui.util.isToday
@@ -74,7 +75,9 @@ fun BrowserHomeScreen(
         }
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .staggeredReveal(0),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -131,34 +134,39 @@ fun BrowserHomeScreen(
         }
         item { Spacer(Modifier.height(30.dp)) }
         item {
-            Text(
-                "интернет без суеты",
-                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.8.sp),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Куда пойдём?",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Адрес, запрос или тихое чтение — всё в одном месте.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 16.dp),
-            )
+            Column(Modifier.staggeredReveal(1)) {
+                Text(
+                    "интернет без суеты",
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.8.sp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Куда пойдём?",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Адрес, запрос или тихое чтение — всё в одном месте.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 16.dp),
+                )
+            }
         }
         item { Spacer(Modifier.height(22.dp)) }
         item {
-            HomeSearchBar(onClick = onOpenOmnibox)
+            Box(Modifier.staggeredReveal(2)) {
+                HomeSearchBar(onClick = onOpenOmnibox)
+            }
         }
         item { Spacer(Modifier.height(30.dp)) }
         item {
             SectionHeader(
                 title = "Быстрый доступ",
                 icon = null,
+                modifier = Modifier.staggeredReveal(3),
                 trailing = if (bookmarks.isNotEmpty()) {
                     {
                         Text(
@@ -177,20 +185,23 @@ fun BrowserHomeScreen(
         }
         item { Spacer(Modifier.height(3.dp)) }
         item {
-            if (bookmarks.isEmpty()) {
-                EmptyQuickAccessCard(onAdd = onOpenOmnibox)
-            } else {
-                QuickAccessGrid(
-                    bookmarks = bookmarks.take(8),
-                    onOpenBookmark = onOpenBookmark,
-                    onAdd = onOpenOmnibox,
-                )
+            Box(Modifier.staggeredReveal(4)) {
+                if (bookmarks.isEmpty()) {
+                    EmptyQuickAccessCard(onAdd = onOpenOmnibox)
+                } else {
+                    QuickAccessGrid(
+                        bookmarks = bookmarks.take(8),
+                        onOpenBookmark = onOpenBookmark,
+                        onAdd = onOpenOmnibox,
+                    )
+                }
             }
         }
         item { Spacer(Modifier.height(30.dp)) }
         item {
             SectionHeader(
                 title = "Недавно",
+                modifier = Modifier.staggeredReveal(5),
                 trailing = if (recentHistory.isNotEmpty()) {
                     {
                         Text(
@@ -210,45 +221,49 @@ fun BrowserHomeScreen(
         item { Spacer(Modifier.height(3.dp)) }
         if (recentHistory.isEmpty()) {
             item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                    ),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        BrowserArt(
-                            kind = BrowserIllustration.HISTORY,
-                            modifier = Modifier
-                                .width(168.dp)
-                                .padding(top = 8.dp),
-                        )
-                        Text(
-                            "Здесь будет история",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            "Откройте первую страницу — и Mimo запомнит, где вы остановились.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(12.dp))
+                Box(Modifier.staggeredReveal(6)) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        ),
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            BrowserArt(
+                                kind = BrowserIllustration.HISTORY,
+                                modifier = Modifier
+                                    .width(168.dp)
+                                    .padding(top = 8.dp),
+                            )
+                            Text(
+                                "Здесь будет история",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "Откройте первую страницу — и Mimo запомнит, где вы остановились.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
                     }
                 }
             }
         } else {
-            items(recentHistory.take(6)) { entry ->
+            items(recentHistory.take(6), key = { "home-${it.id}" }) { entry ->
                 HistoryRow(
                     entry = entry,
                     onClick = { onOpenHistory(entry) },
+                    modifier = Modifier
+                        .animateItem()
+                        .padding(bottom = 8.dp),
                 )
-                Spacer(Modifier.height(8.dp))
             }
         }
         item { Spacer(Modifier.height(16.dp)) }
@@ -256,7 +271,8 @@ fun BrowserHomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = 6.dp)
+                    .staggeredReveal(7),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -294,7 +310,7 @@ private fun HomeSearchBar(onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(66.dp)
-            .pressScale(interaction, 0.985f),
+            .pressScale(interaction, 0.965f),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 1f),
         border = BorderStroke(
@@ -356,11 +372,16 @@ private fun HomeSearchBar(onClick: () -> Unit) {
 
 @Composable
 private fun EmptyQuickAccessCard(onAdd: () -> Unit) {
+    val interaction = androidx.compose.runtime.remember {
+        androidx.compose.foundation.interaction.MutableInteractionSource()
+    }
     Surface(
         onClick = onAdd,
+        interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
-            .height(94.dp),
+            .height(94.dp)
+            .pressScale(interaction, 0.97f),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(
@@ -461,11 +482,16 @@ private sealed interface QuickCell {
 
 @Composable
 private fun BookmarkTile(bookmark: BookmarkEntity, onClick: () -> Unit) {
+    val interaction = androidx.compose.runtime.remember {
+        androidx.compose.foundation.interaction.MutableInteractionSource()
+    }
     Surface(
         onClick = onClick,
+        interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
-            .height(116.dp),
+            .height(116.dp)
+            .pressScale(interaction, 0.94f),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(
@@ -504,11 +530,16 @@ private fun BookmarkTile(bookmark: BookmarkEntity, onClick: () -> Unit) {
 
 @Composable
 private fun AddTile(onClick: () -> Unit) {
+    val interaction = androidx.compose.runtime.remember {
+        androidx.compose.foundation.interaction.MutableInteractionSource()
+    }
     Surface(
         onClick = onClick,
+        interactionSource = interaction,
         modifier = Modifier
             .fillMaxWidth()
-            .height(116.dp),
+            .height(116.dp)
+            .pressScale(interaction, 0.94f),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
         border = BorderStroke(
@@ -537,10 +568,14 @@ private fun AddTile(onClick: () -> Unit) {
 }
 
 @Composable
-fun HistoryRow(entry: HistoryEntity, onClick: () -> Unit) {
+fun HistoryRow(
+    entry: HistoryEntity,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.8f),
         border = BorderStroke(
