@@ -174,10 +174,19 @@ private fun BrowserRootContent(
     val jsDialog by viewModel.jsDialog.collectAsStateWithLifecycle()
 
     val dockVisible = destination == Destination.Browser && !omniboxOpen && !tabsOpen
-    val pageBlurred = menuOpen && settings.interfaceBlur &&
+    var holdPageBlur by remember { mutableStateOf(false) }
+    LaunchedEffect(menuOpen, activeState?.isHome) {
+        if (menuOpen) {
+            holdPageBlur = true
+        } else {
+            kotlinx.coroutines.delay(260)
+            holdPageBlur = false
+        }
+    }
+    val pageBlurred = (menuOpen || holdPageBlur) && settings.interfaceBlur &&
         activeState?.isHome == false && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val blurRadiusPx = with(LocalDensity.current) { 18.dp.toPx() }
-    LaunchedEffect(menuOpen, settings.interfaceBlur, activeTab?.id, activeState?.isHome) {
+    LaunchedEffect(pageBlurred, activeTab?.id) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val webView = activeTab?.webView
             webView?.setRenderEffect(

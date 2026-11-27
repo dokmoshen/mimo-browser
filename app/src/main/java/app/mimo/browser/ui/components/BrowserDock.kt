@@ -1,7 +1,6 @@
 package app.mimo.browser.ui.components
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -11,9 +10,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -51,13 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -112,8 +108,13 @@ fun BrowserSurfaceHost(
     val blurEnabled = LocalInterfaceBlur.current
     var panelScreen by remember { mutableStateOf<Rect?>(null) }
     val screen = panelScreen
-    val showBackdrop = expanded && blurEnabled && !pageBlurred && backdrop != null && screen != null
-    val glassActive = expanded && blurEnabled && (showBackdrop || pageBlurred)
+    val panelProgress by animateFloatAsState(
+        targetValue = if (expanded) 1f else 0f,
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
+        label = "browserGlassProgress",
+    )
+    val glassActive = blurEnabled && panelProgress > 0.02f
+    val showBackdrop = glassActive && !pageBlurred && backdrop != null && screen != null
     val dark = LocalMimoDark.current
     val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val tintStart = surfaceColor.copy(alpha = if (dark) 0.30f else 0.20f)
@@ -149,12 +150,12 @@ fun BrowserSurfaceHost(
             }
             val width by animateDpAsState(
                 targetValue = panelWidth,
-                animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
+                animationSpec = tween(280, easing = FastOutSlowInEasing),
                 label = "browserPanelWidth",
             )
             val height by animateDpAsState(
                 targetValue = panelHeight,
-                animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
+                animationSpec = tween(280, easing = FastOutSlowInEasing),
                 label = "browserPanelHeight",
             )
             val corner by animateDpAsState(
@@ -167,6 +168,11 @@ fun BrowserSurfaceHost(
                 animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
                 label = "browserPanelOrigin",
             )
+            val dockAlpha = if (expanded) {
+                (1f - ((height.value - 68f) / 80f)).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
 
             Surface(
                 modifier = Modifier
@@ -186,11 +192,6 @@ fun BrowserSurfaceHost(
                             right = location[0] + position.x + coordinates.size.width,
                             bottom = location[1] + position.y + coordinates.size.height,
                         )
-                    }
-                    .graphicsLayer {
-                        transformOrigin = TransformOrigin(0.14f, 1f)
-                        scaleX = 0.92f + 0.08f * origin
-                        scaleY = 0.96f + 0.04f * origin
                     },
                 shape = RoundedCornerShape(corner),
                 color = if (glassActive) Color.Transparent else surfaceColor.copy(alpha = 1f),
@@ -198,10 +199,10 @@ fun BrowserSurfaceHost(
                     1.dp,
                     MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
                 ),
-                shadowElevation = if (expanded) {
-                    if (glassActive) 0.dp else 24.dp
-                } else {
-                    14.dp
+                shadowElevation = when {
+                    glassActive -> 0.dp
+                    expanded -> 24.dp
+                    else -> 14.dp
                 },
             ) {
                 val glow = MaterialTheme.colorScheme.primary
@@ -247,44 +248,45 @@ fun BrowserSurfaceHost(
                             center = Offset(size.width / 2f, size.height),
                         )
                     }
-                    AnimatedContent(
-                        targetState = mode,
-                        transitionSpec = {
-                            (fadeIn(tween(200, delayMillis = 70)) + scaleIn(
-                                initialScale = 0.97f,
-                                animationSpec = tween(220),
-                            )).togetherWith(fadeOut(tween(80)))
-                        },
-                        label = "browserPanelContent",
-                    ) { current ->
-                        when (current) {
-                            BrowserPanelMode.DOCK -> DockContent(
-                                canGoBack = canGoBack,
-                                canGoForward = canGoForward,
-                                tabCount = tabCount,
-                                onMenuClick = onMenuClick,
-                                onBack = onBack,
-                                onForward = onForward,
-                                onNewTab = onNewTab,
-                                onTabs = onTabs,
-                            )
-                            BrowserPanelMode.MENU -> MenuContent(
-                                bookmarkCount = bookmarkCount,
-                                historyCount = historyCount,
-                                downloadCount = downloadCount,
-                                desktopMode = desktopMode,
-                                hasPage = hasPage,
-                                onDismiss = onDismiss,
-                                onBookmarks = onBookmarks,
-                                onHistory = onHistory,
-                                onDownloads = onDownloads,
-                                onShare = onShare,
-                                onCopyLink = onCopyLink,
-                                onToggleDesktop = onToggleDesktop,
-                                onOpenExternal = onOpenExternal,
-                                onSettings = onSettings,
-                            )
-                        }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(dockAlpha),
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        DockContent(
+                            canGoBack = canGoBack,
+                            canGoForward = canGoForward,
+                            tabCount = tabCount,
+                            onMenuClick = onMenuClick,
+                            onBack = onBack,
+                            onForward = onForward,
+                            onNewTab = onNewTab,
+                            onTabs = onTabs,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = expanded,
+                        enter = fadeIn(tween(150)),
+                        exit = fadeOut(tween(60)),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        MenuContent(
+                            bookmarkCount = bookmarkCount,
+                            historyCount = historyCount,
+                            downloadCount = downloadCount,
+                            desktopMode = desktopMode,
+                            hasPage = hasPage,
+                            onDismiss = onDismiss,
+                            onBookmarks = onBookmarks,
+                            onHistory = onHistory,
+                            onDownloads = onDownloads,
+                            onShare = onShare,
+                            onCopyLink = onCopyLink,
+                            onToggleDesktop = onToggleDesktop,
+                            onOpenExternal = onOpenExternal,
+                            onSettings = onSettings,
+                        )
                     }
                 }
             }
@@ -305,7 +307,8 @@ private fun DockContent(
 ) {
     Row(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .height(68.dp)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
