@@ -1,18 +1,23 @@
 package app.mimo.browser.ui.browser
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -20,9 +25,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,9 +49,50 @@ import app.mimo.browser.ui.components.MimoLogo
 import app.mimo.browser.ui.components.pressScale
 import app.mimo.browser.ui.components.staggeredReveal
 import app.mimo.browser.ui.theme.Unbounded
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 @Composable
-fun BrowserHomeScreen(onOpenOmnibox: () -> Unit) {
+fun BrowserHomeScreen(
+    onOpenOmnibox: () -> Unit,
+    omniboxOpen: Boolean,
+) {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val flight = remember { Animatable(0f) }
+    var flightJob by remember { mutableStateOf<Job?>(null) }
+    var searchBounds by remember { mutableStateOf<Rect?>(null) }
+    val statusBarTop = WindowInsets.statusBars.getTop(density).toFloat()
+
+    fun flyToTop() {
+        if (flightJob != null) return
+        flightJob = scope.launch {
+            flight.snapTo(0f)
+            flight.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 380,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
+            onOpenOmnibox()
+        }
+    }
+
+    LaunchedEffect(omniboxOpen) {
+        if (!omniboxOpen && flight.value > 0f) {
+            flightJob?.cancel()
+            flightJob = null
+            flight.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(
+                    durationMillis = 320,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
+        }
+    }
+
     MimoBackdrop {
         Column(
             modifier = Modifier
@@ -45,6 +102,7 @@ fun BrowserHomeScreen(onOpenOmnibox: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            val brandFade = { (1f - flight.value * 1.8f).coerceIn(0f, 1f) }
             MimoLogo(
                 modifier = Modifier
                     .size(76.dp)
@@ -52,16 +110,19 @@ fun BrowserHomeScreen(onOpenOmnibox: () -> Unit) {
                         index = 0,
                         offsetY = 22.dp,
                         initialScale = 0.9f,
-                    ),
+                    )
+                    .graphicsLayer { alpha = brandFade() },
                 color = MaterialTheme.colorScheme.primary,
                 accent = MaterialTheme.colorScheme.secondary,
             )
             Spacer(Modifier.height(16.dp))
             Row(
-                modifier = Modifier.staggeredReveal(
-                    index = 1,
-                    offsetY = 16.dp,
-                ),
+                modifier = Modifier
+                    .staggeredReveal(
+                        index = 1,
+                        offsetY = 16.dp,
+                    )
+                    .graphicsLayer { alpha = brandFade() },
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Text(
@@ -82,12 +143,28 @@ fun BrowserHomeScreen(onOpenOmnibox: () -> Unit) {
             }
             Spacer(Modifier.height(36.dp))
             Box(
-                Modifier.staggeredReveal(
-                    index = 2,
-                    offsetY = 24.dp,
-                ),
+                Modifier
+                    .staggeredReveal(
+                        index = 2,
+                        offsetY = 24.dp,
+                    )
+                    .onGloballyPositioned { searchBounds = it.boundsInRoot() }
+                    .graphicsLayer {
+                        val progress = flight.value
+                        val bounds = searchBounds
+                        if (bounds != null && bounds.width > 0f && bounds.height > 0f) {
+                            val targetWidth = bounds.width - 24.dp.toPx()
+                            val targetCenterX = bounds.center.x + 20.dp.toPx()
+                            val targetCenterY = statusBarTop + 36.dp.toPx()
+                            translationX = (targetCenterX - bounds.center.x) * progress
+                            translationY = (targetCenterY - bounds.center.y) * progress
+                            scaleX = 1f + (targetWidth / bounds.width - 1f) * progress
+                            scaleY = 1f + (56.dp.toPx() / bounds.height - 1f) * progress
+                        }
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    },
             ) {
-                HomeSearchBar(onClick = onOpenOmnibox)
+                HomeSearchBar(onClick = ::flyToTop)
             }
         }
     }

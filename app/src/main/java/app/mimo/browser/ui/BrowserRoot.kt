@@ -321,6 +321,7 @@ private fun BrowserRootContent(
             tab = activeTab,
             state = activeState,
             bookmarked = bookmarked,
+            omniboxOpen = omniboxOpen,
             onOpenOmnibox = { viewModel.openOmnibox() },
             onAddressBarBounds = { addressBarBounds = it },
             onReload = { viewModel.reload() },
@@ -496,14 +497,8 @@ private fun BrowserRootContent(
 
         AnimatedVisibility(
             visible = omniboxOpen,
-            enter = fadeIn(tween(160)) + slideInVertically(
-                animationSpec = tween(240, easing = FastOutSlowInEasing),
-                initialOffsetY = { -it / 12 },
-            ),
-            exit = fadeOut(tween(130)) + slideOutVertically(
-                animationSpec = tween(180, easing = FastOutSlowInEasing),
-                targetOffsetY = { -it / 16 },
-            ),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(160)),
         ) {
             BrowserOmnibox(
                 query = omniboxQuery,

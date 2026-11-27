@@ -82,6 +82,7 @@ fun BrowserContent(
     tab: BrowserTab?,
     state: TabState?,
     bookmarked: Boolean,
+    omniboxOpen: Boolean,
     onOpenOmnibox: () -> Unit,
     onAddressBarBounds: (androidx.compose.ui.geometry.Rect?) -> Unit = {},
     onReload: () -> Unit,
@@ -197,7 +198,10 @@ fun BrowserContent(
 
     if (state.isHome) {
         MimoBackdrop {
-            BrowserHomeScreen(onOpenOmnibox = onOpenOmnibox)
+            BrowserHomeScreen(
+                onOpenOmnibox = onOpenOmnibox,
+                omniboxOpen = omniboxOpen,
+            )
         }
         return
     }
