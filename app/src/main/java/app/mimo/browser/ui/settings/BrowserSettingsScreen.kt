@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,15 +30,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import app.mimo.browser.BuildConfig
 import app.mimo.browser.preferences.BrowserSettings
 import app.mimo.browser.preferences.DesignLanguage
@@ -54,6 +60,14 @@ import app.mimo.browser.ui.components.SectionHeader
 import app.mimo.browser.ui.components.pressScale
 import app.mimo.browser.ui.displayName
 import app.mimo.browser.ui.util.pluralRu
+import app.mimo.browser.update.UpdateChecker
+import app.mimo.browser.update.UpdateInfo
+import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class ClearTarget { HISTORY, BOOKMARKS, DOWNLOADS, WEB_DATA }
 
@@ -78,6 +92,122 @@ fun BrowserSettingsScreen(
 ) {
     var clearTarget by remember { mutableStateOf<ClearTarget?>(null) }
     val haptics = LocalMimoHaptics.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var updateChecking by remember { mutableStateOf(false) }
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var updateStatus by remember { mutableStateOf<String?>(null) }
+    var updateDownloading by remember { mutableStateOf(false) }
+    var updateProgress by remember { mutableFloatStateOf(0f) }
+    var updateError by remember { mutableStateOf<String?>(null) }
+    var updateReady by remember { mutableStateOf(false) }
+    var updateFile by remember { mutableStateOf<File?>(null) }
+    var updateInstallAllowed by remember { mutableStateOf(UpdateChecker.canInstall(context)) }
+    var updateDownloadJob by remember { mutableStateOf<Job?>(null) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        updateInstallAllowed = UpdateChecker.canInstall(context)
+    }
+
+    fun checkForUpdates() {
+        if (updateChecking || updateDownloading) return
+        updateChecking = true
+        updateStatus = null
+        updateError = null
+        scope.launch {
+            try {
+                val info = UpdateChecker.check(BuildConfig.VERSION_NAME)
+                if (info == null) {
+                    updateStatus = "У вас последняя версия."
+                } else {
+                    updateInfo = info
+                    updateFile = null
+                    updateReady = false
+                    updateProgress = 0f
+                    updateError = null
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                updateStatus = "Не удалось проверить обновления."
+                updateError = error.message
+            } finally {
+                updateChecking = false
+            }
+        }
+    }
+
+    fun downloadUpdate() {
+        val info = updateInfo ?: return
+        if (updateDownloading) return
+        updateDownloading = true
+        updateReady = false
+        updateProgress = 0f
+        updateError = null
+        updateDownloadJob = scope.launch {
+            try {
+                val file = UpdateChecker.download(context, info) { downloaded, total ->
+                    if (total > 0) {
+                        withContext(Dispatchers.Main) {
+                            updateProgress = (downloaded.toFloat() / total).coerceIn(0f, 1f)
+                        }
+                    }
+                }
+                updateFile = file
+                updateReady = true
+                updateStatus = "Обновление готово к установке."
+                if (UpdateChecker.install(context, file)) {
+                    updateInfo = null
+                    updateFile = null
+                    updateReady = false
+                    updateStatus = null
+                } else {
+                    updateInstallAllowed = false
+                    updateError = "Разрешите установку из этого источника и вернитесь в Mimo Browser."
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                updateError = when {
+                    error.message?.contains("Checksum", ignoreCase = true) == true ->
+                        "Файл обновления повреждён."
+                    error.message?.contains("Signature", ignoreCase = true) == true ->
+                        "Подпись обновления не совпадает."
+                    error.message?.contains("package", ignoreCase = true) == true ->
+                        "Это обновление для другой версии приложения."
+                    else -> "Не удалось скачать обновление."
+                }
+                updateReady = false
+            } finally {
+                updateDownloading = false
+                updateDownloadJob = null
+            }
+        }
+    }
+
+    fun installDownloaded() {
+        val file = updateFile ?: return
+        if (UpdateChecker.install(context, file)) {
+            updateInfo = null
+            updateFile = null
+            updateReady = false
+            updateStatus = null
+        } else {
+            updateInstallAllowed = false
+            updateError = "Разрешите установку из этого источника и вернитесь в Mimo Browser."
+        }
+    }
+
+    fun dismissUpdate() {
+        updateDownloadJob?.cancel()
+        updateDownloadJob = null
+        updateDownloading = false
+        updateInfo = null
+        updateFile = null
+        updateReady = false
+        updateProgress = 0f
+        updateError = null
+    }
 
     MimoBackdrop {
         Column(
@@ -245,7 +375,11 @@ fun BrowserSettingsScreen(
                     )
                 }
                 SectionHeader("О приложении")
-                AboutCard()
+                AboutCard(
+                    checking = updateChecking,
+                    status = updateStatus,
+                    onCheck = ::checkForUpdates,
+                )
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -290,6 +424,25 @@ fun BrowserSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { clearTarget = null }) { Text("Отмена") }
+            },
+        )
+    }
+
+    updateInfo?.let { info ->
+        UpdateDialog(
+            info = info,
+            currentVersion = BuildConfig.VERSION_NAME,
+            downloading = updateDownloading,
+            progress = updateProgress,
+            ready = updateReady,
+            installAllowed = updateInstallAllowed,
+            error = updateError,
+            onDismiss = ::dismissUpdate,
+            onDownload = ::downloadUpdate,
+            onInstall = ::installDownloaded,
+            onOpenInstallSettings = {
+                updateInstallAllowed = false
+                UpdateChecker.openInstallSettings(context)
             },
         )
     }
@@ -529,7 +682,11 @@ private fun DesignCard(
 }
 
 @Composable
-private fun AboutCard() {
+private fun AboutCard(
+    checking: Boolean,
+    status: String?,
+    onCheck: () -> Unit,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -559,6 +716,49 @@ private fun AboutCard() {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                onClick = {
+                    if (!checking) onCheck()
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                enabled = !checking,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    if (checking) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(15.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Icon(
+                            MimoIcons.SystemUpdate,
+                            contentDescription = null,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                    Text(
+                        if (checking) "Проверяем…" else "Проверить обновления",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+            if (status != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Text(
                 "Тёплый браузер на Material 3 Expressive. Никаких аккаунтов и облака: история, закладки и настройки остаются на устройстве.",

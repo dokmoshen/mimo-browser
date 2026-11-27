@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,7 +79,7 @@ fun BrowserAddressBar(
                 .height(54.dp)
                 .pressScale(interaction, 0.985f),
             shape = CircleShape,
-            color = if (glass) surfaceColor.copy(alpha = 0.14f) else surfaceColor.copy(alpha = 1f),
+            color = if (glass) Color.Transparent else surfaceColor.copy(alpha = 1f),
             border = BorderStroke(
                 1.dp,
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
