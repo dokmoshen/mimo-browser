@@ -51,7 +51,9 @@ import app.mimo.browser.web.UrlKit
 @Composable
 fun BrowserDuckResultsScreen(
     state: DuckSearchState,
+    tabCount: Int,
     onBack: () -> Unit,
+    onTabs: () -> Unit,
     onEditQuery: (String) -> Unit,
     onOpenResult: (String) -> Unit,
     onRetry: () -> Unit,
@@ -61,7 +63,9 @@ fun BrowserDuckResultsScreen(
         Column(Modifier.fillMaxSize()) {
             ResultsHeader(
                 state = state,
+                tabCount = tabCount,
                 onBack = onBack,
+                onTabs = onTabs,
                 onEditQuery = { onEditQuery(state.query) },
                 onRetry = onRetry,
             )
@@ -101,7 +105,9 @@ fun BrowserDuckResultsScreen(
 @Composable
 private fun ResultsHeader(
     state: DuckSearchState,
+    tabCount: Int,
     onBack: () -> Unit,
+    onTabs: () -> Unit,
     onEditQuery: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -127,29 +133,46 @@ private fun ResultsHeader(
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                onClick = {
+                    haptics.tap()
+                    onEditQuery()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                ),
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(
+                        MimoIcons.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
                     Text(
-                        "D",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        "duckduckgo.com",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "DuckDuckGo",
-                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp),
-                    color = MaterialTheme.colorScheme.primary,
-                )
             }
+            Spacer(Modifier.width(6.dp))
+            TabCountBadge(count = tabCount, onClick = onTabs)
             IconButton(
                 onClick = {
                     if (!loading) {
@@ -158,7 +181,7 @@ private fun ResultsHeader(
                     }
                 },
                 enabled = !loading,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(44.dp),
             ) {
                 if (loading) {
                     CircularProgressIndicator(
@@ -567,12 +590,12 @@ private fun ResultsFooter(
 }
 
 private fun summaryLabel(state: DuckSearchState): String = when (state) {
-    is DuckSearchState.Loading -> "Ищем результаты…"
-    is DuckSearchState.Failed -> "Не удалось загрузить выдачу"
+    is DuckSearchState.Loading -> "DuckDuckGo · ищем результаты…"
+    is DuckSearchState.Failed -> "DuckDuckGo · не удалось загрузить выдачу"
     is DuckSearchState.Ready -> if (state.results.isEmpty()) {
-        "Ничего не найдено"
+        "DuckDuckGo · ничего не найдено"
     } else {
-        "${resultsLabel(state.results.size)} · без рекламы"
+        "DuckDuckGo · ${resultsLabel(state.results.size)} · без рекламы"
     }
 }
 

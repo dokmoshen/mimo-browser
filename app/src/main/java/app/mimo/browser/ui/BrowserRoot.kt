@@ -12,7 +12,9 @@ import android.content.Intent
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.widget.FrameLayout
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -64,6 +66,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
@@ -99,6 +102,8 @@ import app.mimo.browser.ui.theme.MimoTheme
 import app.mimo.browser.web.FullscreenView
 import app.mimo.browser.web.JsDialog
 import app.mimo.browser.web.UrlKit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -148,7 +153,8 @@ private fun BrowserRootContent(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHost = remember { SnackbarHostState() }
-    val rootView = LocalView.current.rootView
+    val contentView = LocalView.current
+    val rootView = contentView.rootView
     var glassBackdrop by remember { mutableStateOf<GlassBackdrop?>(null) }
     val downloadStartedLabel = stringResource(R.string.download_started)
     val downloadsLabel = stringResource(R.string.downloads)
@@ -285,10 +291,42 @@ private fun BrowserRootContent(
         }
     }
 
-    BackHandler(
-        enabled = fullscreen != null || jsDialog != null || omniboxOpen || tabsOpen || menuOpen ||
-            destination != Destination.Browser || activeState?.isHome == false,
-    ) {
+    val overlayBackEnabled = fullscreen != null || jsDialog != null || omniboxOpen ||
+        tabsOpen || menuOpen || destination != Destination.Browser
+    val pageBackGestures = !overlayBackEnabled && activeState?.isHome == false
+    val screenWidthPx = with(LocalDensity.current) {
+        LocalConfiguration.current.screenWidthDp.dp.toPx()
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val onPredictiveBack: suspend Flow<BackEventCompat>.() -> Unit = {
+            var firstTouchX = Float.NaN
+            try {
+                collect { event: BackEventCompat ->
+                    if (firstTouchX.isNaN()) firstTouchX = event.touchX
+                }
+                val fromRightEdge = !firstTouchX.isNaN() && firstTouchX > screenWidthPx / 2f
+                when {
+                    fromRightEdge && activeState?.canGoForward == true -> viewModel.goForward()
+                    activeState?.canGoBack == true -> viewModel.goBack()
+                    activeState != null -> viewModel.goHome()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            }
+        }
+        PredictiveBackHandler(
+            enabled = pageBackGestures,
+            onBack = onPredictiveBack,
+        )
+    } else {
+        BackHandler(enabled = pageBackGestures) {
+            when {
+                activeState?.canGoBack == true -> viewModel.goBack()
+                activeState != null -> viewModel.goHome()
+            }
+        }
+    }
+    BackHandler(enabled = overlayBackEnabled) {
         when {
             fullscreen != null -> viewModel.exitFullscreen()
             jsDialog != null -> viewModel.dismissJsDialog()
@@ -296,8 +334,6 @@ private fun BrowserRootContent(
             tabsOpen -> viewModel.tabsOpen.value = false
             menuOpen -> viewModel.menuOpen.value = false
             destination != Destination.Browser -> viewModel.backToBrowser()
-            activeState?.canGoBack == true -> viewModel.goBack()
-            activeState != null -> viewModel.goHome()
         }
     }
 
@@ -328,7 +364,11 @@ private fun BrowserRootContent(
             bookmarked = bookmarked,
             omniboxOpen = omniboxOpen,
             nativeSearch = nativeSearch,
+            tabCount = tabs.size,
             onOpenOmnibox = { viewModel.openOmnibox() },
+            onTabs = { viewModel.tabsOpen.value = true },
+            onOpenUrl = { viewModel.openUrl(it) },
+            onOpenInNewTab = { viewModel.newTab(it) },
             onOpenSearchResult = { viewModel.openUrl(it) },
             onEditSearchQuery = { viewModel.openOmnibox(it) },
             onRetrySearch = { viewModel.retryNativeSearch() },

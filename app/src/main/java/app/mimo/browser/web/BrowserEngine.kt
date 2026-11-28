@@ -150,7 +150,7 @@ class BrowserEngine(
 
     fun newTab(url: String? = null, select: Boolean = true): BrowserTab {
         val id = nextId++
-        val webView = WebView(context)
+        val webView = MimoWebView(context)
         setupWebView(webView)
         val tab = BrowserTab(id, webView, ::publish)
         tab.update { it.copy(isDesktop = settings.desktopMode) }
@@ -458,6 +458,9 @@ class BrowserEngine(
                 scope.launch(Dispatchers.IO) {
                     history.recordVisit(current, pageTitle)
                 }
+                if (settings.javascriptEnabled) {
+                    view.evaluateJavascript(LINK_LONG_PRESS_JS, null)
+                }
             }
         }
 
@@ -607,6 +610,54 @@ class BrowserEngine(
     }
 
     companion object {
+        private const val LINK_LONG_PRESS_JS = """
+(function(){
+  if (window.__mimoLinkLongPress) return;
+  window.__mimoLinkLongPress = true;
+  var timer = null;
+  var startX = 0;
+  var startY = 0;
+  var url = null;
+  function linkFrom(target) {
+    var node = target;
+    while (node && node !== document) {
+      if (node.tagName && node.tagName.toLowerCase() === 'a' && node.href) return node.href;
+      node = node.parentElement;
+    }
+    return null;
+  }
+  document.addEventListener('contextmenu', function(e){
+    if (linkFrom(e.target)) e.preventDefault();
+  }, true);
+  document.addEventListener('touchstart', function(e){
+    var link = linkFrom(e.target);
+    if (!link || !e.touches || !e.touches.length) return;
+    url = link;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function(){
+      timer = null;
+      if (url && window.MimoLink) window.MimoLink.onLongPress(url);
+    }, 520);
+  }, {passive: true, capture: true});
+  document.addEventListener('touchmove', function(e){
+    if (!timer || !e.touches || !e.touches.length) return;
+    var dx = e.touches[0].clientX - startX;
+    var dy = e.touches[0].clientY - startY;
+    if (Math.sqrt(dx * dx + dy * dy) > 12) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }, {passive: true, capture: true});
+  document.addEventListener('touchend', function(){
+    if (timer) { clearTimeout(timer); timer = null; }
+  }, true);
+  document.addEventListener('touchcancel', function(){
+    if (timer) { clearTimeout(timer); timer = null; }
+  }, true);
+})();
+"""
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"

@@ -1,5 +1,7 @@
 package app.mimo.browser.ui.browser
 
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.ViewGroup
@@ -36,6 +38,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,6 +71,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.FrameLayout
 import app.mimo.browser.ui.LocalMimoHaptics
 import app.mimo.browser.ui.components.BrowserArt
+import app.mimo.browser.ui.components.BrowserIcons
 import app.mimo.browser.ui.components.BrowserIllustration
 import app.mimo.browser.ui.components.MimoBackdrop
 import app.mimo.browser.ui.theme.LocalInterfaceBlur
@@ -77,6 +81,7 @@ import app.mimo.browser.search.DuckDuckGo
 import app.mimo.browser.search.DuckSearchState
 import app.mimo.browser.web.BrowserTab
 import app.mimo.browser.web.TabState
+import app.mimo.browser.web.LinkPreviewLoader
 import app.mimo.browser.web.UrlKit
 
 @Composable
@@ -86,7 +91,11 @@ fun BrowserContent(
     bookmarked: Boolean,
     omniboxOpen: Boolean,
     nativeSearch: DuckSearchState?,
+    tabCount: Int,
     onOpenOmnibox: () -> Unit,
+    onTabs: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onOpenInNewTab: (String) -> Unit,
     onOpenSearchResult: (String) -> Unit,
     onEditSearchQuery: (String) -> Unit,
     onRetrySearch: () -> Unit,
@@ -113,8 +122,10 @@ fun BrowserContent(
     val pullRefresh = remember(tab.id) { mutableStateOf(false) }
     val pullLimit = with(density) { 132.dp.toPx() }
     val pullThreshold = with(density) { 68.dp.toPx() }
+    val longPressSlop = with(density) { 8.dp.toPx() }
     val reloadState = rememberUpdatedState(onReload)
     val loadingState = rememberUpdatedState(state.isLoading)
+    var linkPreview by remember(tab.id) { mutableStateOf<LinkPreviewState?>(null) }
 
     DisposableEffect(tab.id) {
         val webView = tab.webView
@@ -122,15 +133,35 @@ fun BrowserContent(
         var downY = 0f
         var tracking = false
         var armed = false
+        val handler = Handler(Looper.getMainLooper())
+        var longPressMoved = false
+        val longPressRunnable = Runnable {
+            if (longPressMoved) return@Runnable
+            val result = webView.hitTestResult
+            val url = result.extra.orEmpty()
+            if (result.type == WebView.HitTestResult.SRC_ANCHOR_TYPE && UrlKit.isHttp(url)) {
+                if (linkPreview?.url != url) {
+                    haptics.longPress()
+                    linkPreview = LinkPreviewState(url = url)
+                }
+            }
+        }
         val touchListener = android.view.View.OnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.x
                     downY = event.y
+                    longPressMoved = false
+                    handler.removeCallbacks(longPressRunnable)
+                    handler.postDelayed(longPressRunnable, 550)
                     tracking = webView.scrollY <= 0 && !pullRefresh.value && !loadingState.value
                     armed = false
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (abs(event.x - downX) > longPressSlop || abs(event.y - downY) > longPressSlop) {
+                        longPressMoved = true
+                        handler.removeCallbacks(longPressRunnable)
+                    }
                     if (tracking) {
                         val dx = event.x - downX
                         val dy = event.y - downY
@@ -148,6 +179,7 @@ fun BrowserContent(
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
                     val triggered = tracking && pull.floatValue >= pullThreshold &&
                         event.actionMasked == MotionEvent.ACTION_UP
                     pull.floatValue = 0f
@@ -164,7 +196,39 @@ fun BrowserContent(
         }
         webView.setOnTouchListener(touchListener)
         onDispose {
+            handler.removeCallbacks(longPressRunnable)
             webView.setOnTouchListener(null)
+        }
+    }
+
+    LaunchedEffect(linkPreview?.url) {
+        val current = linkPreview ?: return@LaunchedEffect
+        val data = LinkPreviewLoader.load(current.url)
+        if (linkPreview?.url == current.url) {
+            linkPreview = current.copy(
+                title = data?.title,
+                description = data?.description,
+                loading = false,
+            )
+        }
+    }
+
+    DisposableEffect(tab.id) {
+        val webView = tab.webView
+        fun showPreview(url: String): Boolean {
+            if (!UrlKit.isHttp(url)) return false
+            if (linkPreview?.url == url) return true
+            haptics.longPress()
+            linkPreview = LinkPreviewState(url = url)
+            return true
+        }
+        val bridge = app.mimo.browser.web.MimoLinkBridge { url -> showPreview(url) }
+        webView.addJavascriptInterface(bridge, "MimoLink")
+        val mimoWebView = webView as? app.mimo.browser.web.MimoWebView
+        mimoWebView?.onLinkLongClick = { url -> showPreview(url) }
+        onDispose {
+            mimoWebView?.onLinkLongClick = null
+            webView.removeJavascriptInterface("MimoLink")
         }
     }
 
@@ -220,9 +284,11 @@ fun BrowserContent(
             ?: DuckSearchState.Loading(duckQuery, state.url)
         BrowserDuckResultsScreen(
             state = searchState,
+            tabCount = tabCount,
             onBack = {
                 if (state.canGoBack) onGoBack() else onGoHome()
             },
+            onTabs = onTabs,
             onEditQuery = onEditSearchQuery,
             onOpenResult = onOpenSearchResult,
             onRetry = onRetrySearch,
@@ -260,6 +326,28 @@ fun BrowserContent(
         )
 
         val addressVisible = chromeVisible && state.error == null
+        AnimatedVisibility(
+            visible = !addressVisible && state.error == null,
+            enter = fadeIn(tween(140)) + slideInVertically(
+                animationSpec = tween(200, easing = FastOutSlowInEasing),
+                initialOffsetY = { -it / 2 },
+            ),
+            exit = fadeOut(tween(120)) + slideOutVertically(
+                animationSpec = tween(160, easing = FastOutSlowInEasing),
+                targetOffsetY = { -it / 2 },
+            ),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            BrowserCompactBar(
+                state = state,
+                tabCount = tabCount,
+                onOpenOmnibox = onOpenOmnibox,
+                onTabs = onTabs,
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -292,6 +380,21 @@ fun BrowserContent(
                     onOpenOmnibox = onOpenOmnibox,
                 )
             }
+        }
+
+        linkPreview?.let { preview ->
+            BrowserLinkPreviewSheet(
+                state = preview,
+                onDismiss = { linkPreview = null },
+                onOpen = { url ->
+                    linkPreview = null
+                    onOpenUrl(url)
+                },
+                onOpenInNewTab = { url ->
+                    linkPreview = null
+                    onOpenInNewTab(url)
+                },
+            )
         }
     }
 }
