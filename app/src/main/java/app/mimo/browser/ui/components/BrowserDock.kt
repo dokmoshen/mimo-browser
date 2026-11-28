@@ -21,6 +21,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +68,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -116,6 +118,15 @@ fun BrowserSurfaceHost(
     BackHandler(enabled = mode == BrowserPanelMode.MENU) { onDismiss() }
     val expanded = mode == BrowserPanelMode.MENU
     val haptics = LocalMimoHaptics.current
+    var collapsed by remember { mutableStateOf(false) }
+    val hiddenOffset by animateDpAsState(
+        targetValue = if (collapsed) 140.dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = 0.82f,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "browserDockHidden",
+    )
     val scrim = remember { MutableInteractionSource() }
     val windowView = LocalView.current
     val blurEnabled = LocalInterfaceBlur.current
@@ -228,6 +239,7 @@ fun BrowserSurfaceHost(
                     .padding(bottom = 10.dp)
                     .width(width)
                     .height(height)
+                    .offset(y = hiddenOffset)
                     .onGloballyPositioned { coordinates ->
                         val location = IntArray(2)
                         windowView.rootView.getLocationOnScreen(location)
@@ -323,18 +335,20 @@ fun BrowserSurfaceHost(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .alpha(dockAlpha),
+                            .alpha(if (collapsed) 0f else dockAlpha),
                         contentAlignment = Alignment.BottomCenter,
                     ) {
                         DockContent(
                             canGoBack = canGoBack,
                             canGoForward = canGoForward,
-                            tabCount = tabCount,
                             onMenuClick = onMenuClick,
                             onBack = onBack,
                             onForward = onForward,
                             onNewTab = onNewTab,
-                            onTabs = onTabs,
+                            onHide = {
+                                haptics.tap()
+                                collapsed = true
+                            },
                         )
                     }
                     AnimatedVisibility(
@@ -344,12 +358,14 @@ fun BrowserSurfaceHost(
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         MenuContent(
+                            tabCount = tabCount,
                             bookmarkCount = bookmarkCount,
                             historyCount = historyCount,
                             downloadCount = downloadCount,
                             desktopMode = desktopMode,
                             hasPage = hasPage,
                             onDismiss = onDismiss,
+                            onTabs = onTabs,
                             onBookmarks = onBookmarks,
                             onHistory = onHistory,
                             onDownloads = onDownloads,
@@ -362,6 +378,52 @@ fun BrowserSurfaceHost(
                     }
                 }
             }
+
+            AnimatedVisibility(
+                visible = collapsed,
+                enter = fadeIn(tween(180, delayMillis = 110)),
+                exit = fadeOut(tween(100)),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(bottom = 6.dp)
+                        .width(302.dp)
+                        .height(18.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    haptics.tap()
+                                    collapsed = false
+                                },
+                            )
+                        },
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                        color = surfaceColor.copy(alpha = 0.97f),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                        ),
+                        shadowElevation = 6.dp,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier
+                                    .width(38.dp)
+                                    .height(4.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        CircleShape,
+                                    ),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -370,12 +432,11 @@ fun BrowserSurfaceHost(
 private fun DockContent(
     canGoBack: Boolean,
     canGoForward: Boolean,
-    tabCount: Int,
     onMenuClick: () -> Unit,
     onBack: () -> Unit,
     onForward: () -> Unit,
     onNewTab: () -> Unit,
-    onTabs: () -> Unit,
+    onHide: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -404,10 +465,9 @@ private fun DockContent(
             enabled = canGoForward,
         )
         DockButton(
-            icon = BrowserIcons.Tabs,
-            contentDescription = "Вкладки",
-            onClick = onTabs,
-            badge = tabCount.takeIf { it > 0 },
+            icon = MimoIcons.ArrowDownward,
+            contentDescription = "Скрыть панель",
+            onClick = onHide,
         )
     }
 }
@@ -562,6 +622,7 @@ private fun NewTabButton(onClick: () -> Unit) {
 
 @Composable
 private fun MenuContent(
+    tabCount: Int,
     bookmarkCount: Int,
     historyCount: Int,
     downloadCount: Int,
@@ -572,6 +633,7 @@ private fun MenuContent(
     pageGlass: Boolean = false,
     solidBackground: Boolean = false,
     onDismiss: () -> Unit,
+    onTabs: () -> Unit,
     onBookmarks: () -> Unit,
     onHistory: () -> Unit,
     onDownloads: () -> Unit,
@@ -623,24 +685,34 @@ private fun MenuContent(
         )
         Spacer(Modifier.height(2.dp))
         MenuRow(
+            icon = BrowserIcons.Tabs,
+            label = "Вкладки",
+            count = tabCount,
+            revealIndex = 0,
+            onClick = {
+                onDismiss()
+                onTabs()
+            },
+        )
+        MenuRow(
             icon = BrowserIcons.Bookmark,
             label = "Закладки",
             count = bookmarkCount,
-            revealIndex = 0,
+            revealIndex = 1,
             onClick = onBookmarks,
         )
         MenuRow(
             icon = MimoIcons.History,
             label = "История",
             count = historyCount,
-            revealIndex = 1,
+            revealIndex = 2,
             onClick = onHistory,
         )
         MenuRow(
             icon = MimoIcons.FileDownload,
             label = "Загрузки",
             count = downloadCount,
-            revealIndex = 2,
+            revealIndex = 3,
             onClick = onDownloads,
         )
         HorizontalDivider(
@@ -651,13 +723,13 @@ private fun MenuContent(
             MenuRow(
                 icon = MimoIcons.Share,
                 label = "Поделиться",
-                revealIndex = 3,
+                revealIndex = 4,
                 onClick = onShare,
             )
             MenuRow(
                 icon = MimoIcons.ContentCopy,
                 label = "Скопировать ссылку",
-                revealIndex = 4,
+                revealIndex = 5,
                 onClick = onCopyLink,
             )
         }
@@ -665,14 +737,14 @@ private fun MenuContent(
             icon = BrowserIcons.Desktop,
             label = "Версия для компьютера",
             checked = desktopMode,
-            revealIndex = 5,
+            revealIndex = 6,
             onClick = onToggleDesktop,
         )
         if (hasPage) {
             MenuRow(
                 icon = BrowserIcons.ExternalLink,
                 label = "Открыть в другом браузере",
-                revealIndex = 6,
+                revealIndex = 7,
                 onClick = onOpenExternal,
             )
         }
@@ -683,7 +755,7 @@ private fun MenuContent(
         MenuRow(
             icon = MimoIcons.Settings,
             label = "Настройки",
-            revealIndex = 7,
+            revealIndex = 8,
             onClick = onSettings,
         )
     }

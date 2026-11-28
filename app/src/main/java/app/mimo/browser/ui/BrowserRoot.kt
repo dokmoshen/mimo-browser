@@ -366,7 +366,10 @@ private fun BrowserRootContent(
             nativeSearch = nativeSearch,
             tabCount = tabs.size,
             onOpenOmnibox = { viewModel.openOmnibox() },
-            onTabs = { viewModel.tabsOpen.value = true },
+            onTabs = {
+                viewModel.menuOpen.value = false
+                viewModel.tabsOpen.value = true
+            },
             onOpenUrl = { viewModel.openUrl(it) },
             onOpenInNewTab = { viewModel.newTab(it) },
             onOpenSearchResult = { viewModel.openUrl(it) },
@@ -431,7 +434,10 @@ private fun BrowserRootContent(
                 onBack = { viewModel.goBack() },
                 onForward = { viewModel.goForward() },
                 onNewTab = { viewModel.newTab() },
-                onTabs = { viewModel.tabsOpen.value = true },
+                onTabs = {
+                viewModel.menuOpen.value = false
+                viewModel.tabsOpen.value = true
+            },
                 onBookmarks = { viewModel.openLibrary(LibraryTab.BOOKMARKS) },
                 onHistory = { viewModel.openLibrary(LibraryTab.HISTORY) },
                 onDownloads = { viewModel.openLibrary(LibraryTab.DOWNLOADS) },

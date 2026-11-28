@@ -326,28 +326,6 @@ fun BrowserContent(
         )
 
         val addressVisible = chromeVisible && state.error == null
-        AnimatedVisibility(
-            visible = !addressVisible && state.error == null,
-            enter = fadeIn(tween(140)) + slideInVertically(
-                animationSpec = tween(200, easing = FastOutSlowInEasing),
-                initialOffsetY = { -it / 2 },
-            ),
-            exit = fadeOut(tween(120)) + slideOutVertically(
-                animationSpec = tween(160, easing = FastOutSlowInEasing),
-                targetOffsetY = { -it / 2 },
-            ),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            BrowserCompactBar(
-                state = state,
-                tabCount = tabCount,
-                onOpenOmnibox = onOpenOmnibox,
-                onTabs = onTabs,
-            )
-        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
