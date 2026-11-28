@@ -67,6 +67,7 @@ fun BrowserTabsScreen(
     onSelect: (Long) -> Unit,
     onClose: (Long) -> Unit,
     onNewTab: () -> Unit,
+    onNewPrivateTab: () -> Unit,
     onCloseAll: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -100,6 +101,14 @@ fun BrowserTabsScreen(
                         pluralTabs(tabs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onNewPrivateTab, modifier = Modifier.size(44.dp)) {
+                    Icon(
+                        MimoIcons.VisibilityOff,
+                        contentDescription = "Новая вкладка инкогнито",
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 IconButton(onClick = onNewTab, modifier = Modifier.size(44.dp)) {
@@ -305,9 +314,16 @@ private fun TabCard(
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = if (tab.isHome) "адресная строка ждёт" else UrlKit.host(tab.url),
+                    text = buildString {
+                        if (tab.isPrivate) append("инкогнито · ")
+                        append(if (tab.isHome) "адресная строка ждёт" else UrlKit.host(tab.url))
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (tab.isPrivate) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -347,7 +363,22 @@ private fun TabCard(
 
 @Composable
 private fun TabBadge(tab: TabState) {
-    if (tab.isHome) {
+    if (tab.isPrivate) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(15.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    MimoIcons.VisibilityOff,
+                    contentDescription = "Инкогнито",
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+    } else if (tab.isHome) {
         Surface(
             modifier = Modifier.size(40.dp),
             shape = RoundedCornerShape(15.dp),

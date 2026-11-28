@@ -221,9 +221,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private fun persistTabs() {
         viewModelScope.launch {
             combine(engine.snapshots, engine.activeTab) { tabs, activeTab ->
+                val publicTabs = tabs.filter { !it.isPrivate }
+                val activePrivate = activeTab?.current?.isPrivate == true
                 SavedTabsState(
-                    urls = tabs.map { if (it.isHome) "" else it.url }.filter { it.isNotBlank() },
-                    activeUrl = activeTab?.current?.url?.takeIf { it.isNotBlank() },
+                    urls = publicTabs.map { if (it.isHome) "" else it.url }.filter { it.isNotBlank() },
+                    activeUrl = activeTab?.current?.url
+                        ?.takeIf { !activePrivate && it.isNotBlank() },
                 )
             }
                 .debounce(700)
@@ -235,6 +238,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private fun buildSuggestions(raw: String): List<OmniboxSuggestion> {
         val query = raw.trim()
         val enginePreference = settings.value.searchEngine
+        val privateMode = activeState.value?.isPrivate == true
+        if (privateMode && query.isEmpty()) return emptyList()
         if (query.isEmpty()) {
             return (bookmarks.value.take(4).map {
                 OmniboxSuggestion(SuggestionKind.BOOKMARK, it.title, UrlKit.host(it.url), it.url)
@@ -263,18 +268,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     ),
                 )
             }
-            bookmarks.value
-                .filter { it.title.contains(query, true) || it.url.contains(query, true) }
-                .take(4)
-                .forEach {
-                    add(OmniboxSuggestion(SuggestionKind.BOOKMARK, it.title, UrlKit.host(it.url), it.url))
-                }
-            recentHistory.value
-                .filter { it.title.contains(query, true) || it.url.contains(query, true) }
-                .take(4)
-                .forEach {
-                    add(OmniboxSuggestion(SuggestionKind.HISTORY, it.title, UrlKit.host(it.url), it.url))
-                }
+            if (!privateMode) {
+                bookmarks.value
+                    .filter { it.title.contains(query, true) || it.url.contains(query, true) }
+                    .take(4)
+                    .forEach {
+                        add(OmniboxSuggestion(SuggestionKind.BOOKMARK, it.title, UrlKit.host(it.url), it.url))
+                    }
+                recentHistory.value
+                    .filter { it.title.contains(query, true) || it.url.contains(query, true) }
+                    .take(4)
+                    .forEach {
+                        add(OmniboxSuggestion(SuggestionKind.HISTORY, it.title, UrlKit.host(it.url), it.url))
+                    }
+            }
         }
         return result.distinctBy { it.url }.take(8)
     }
@@ -354,7 +361,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun newTab(url: String? = null) {
-        engine.newTab(url)
+        engine.newTab(url, private = activeState.value?.isPrivate == true)
+        destination.value = Destination.Browser
+        closeOverlays()
+    }
+
+    fun newPrivateTab(url: String? = null) {
+        engine.newTab(url, private = true)
         destination.value = Destination.Browser
         closeOverlays()
     }

@@ -370,6 +370,7 @@ private fun BrowserRootContent(
                 viewModel.menuOpen.value = false
                 viewModel.tabsOpen.value = true
             },
+            onNewPrivateTab = { viewModel.newPrivateTab() },
             onOpenUrl = { viewModel.openUrl(it) },
             onOpenInNewTab = { viewModel.newTab(it) },
             onOpenSearchResult = { viewModel.openUrl(it) },
@@ -407,7 +408,6 @@ private fun BrowserRootContent(
                 mode = if (menuOpen) BrowserPanelMode.MENU else BrowserPanelMode.DOCK,
                 tabCount = tabs.size,
                 bookmarkCount = bookmarkCount,
-                historyCount = historyCount,
                 downloadCount = downloadCount,
                 canGoBack = activeState?.canGoBack == true,
                 canGoForward = activeState?.canGoForward == true,
@@ -435,11 +435,11 @@ private fun BrowserRootContent(
                 onForward = { viewModel.goForward() },
                 onNewTab = { viewModel.newTab() },
                 onTabs = {
-                viewModel.menuOpen.value = false
-                viewModel.tabsOpen.value = true
-            },
+                    viewModel.menuOpen.value = false
+                    viewModel.tabsOpen.value = true
+                },
+                onNewPrivateTab = { viewModel.newPrivateTab() },
                 onBookmarks = { viewModel.openLibrary(LibraryTab.BOOKMARKS) },
-                onHistory = { viewModel.openLibrary(LibraryTab.HISTORY) },
                 onDownloads = { viewModel.openLibrary(LibraryTab.DOWNLOADS) },
                 onShare = {
                     viewModel.menuOpen.value = false
@@ -510,9 +510,12 @@ private fun BrowserRootContent(
         ) {
             BrowserSettingsScreen(
                 settings = settings,
+                history = history,
                 historyCount = historyCount,
                 bookmarkCount = bookmarkCount,
                 downloadCount = downloadCount,
+                onOpenHistory = { viewModel.openUrl(it) },
+                onDeleteHistory = { viewModel.deleteHistory(it.id) },
                 onBack = { viewModel.backToBrowser() },
                 onTheme = { viewModel.setTheme(it) },
                 onDynamicColor = { viewModel.setDynamicColor(it) },
@@ -548,6 +551,7 @@ private fun BrowserRootContent(
                 onSelect = { viewModel.selectTab(it) },
                 onClose = { viewModel.closeTab(it) },
                 onNewTab = { viewModel.newTab() },
+                onNewPrivateTab = { viewModel.newPrivateTab() },
                 onCloseAll = { viewModel.closeAllTabs() },
                 onDismiss = { viewModel.tabsOpen.value = false },
             )

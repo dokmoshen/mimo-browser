@@ -140,7 +140,7 @@ fun BrowserLibraryScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "закладки, история и файлы",
+                        "закладки и файлы",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -160,7 +160,6 @@ fun BrowserLibraryScreen(
             LibrarySegments(
                 tab = tab,
                 bookmarkCount = bookmarks.size,
-                historyCount = history.size,
                 downloadCount = downloads.size,
                 onTabChange = onTabChange,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -232,15 +231,14 @@ fun BrowserLibraryScreen(
 private fun LibrarySegments(
     tab: LibraryTab,
     bookmarkCount: Int,
-    historyCount: Int,
     downloadCount: Int,
     onTabChange: (LibraryTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val selectedIndex = when (tab) {
         LibraryTab.BOOKMARKS -> 0
-        LibraryTab.HISTORY -> 1
-        LibraryTab.DOWNLOADS -> 2
+        LibraryTab.HISTORY -> 0
+        LibraryTab.DOWNLOADS -> 1
     }
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -257,7 +255,7 @@ private fun LibrarySegments(
                 .padding(4.dp)
                 .height(42.dp),
         ) {
-            val segmentWidth = maxWidth / 3
+            val segmentWidth = maxWidth / 2
             val pillOffset by animateDpAsState(
                 targetValue = segmentWidth * selectedIndex,
                 animationSpec = spring(
@@ -290,18 +288,10 @@ private fun LibrarySegments(
                     modifier = Modifier.weight(1f),
                 )
                 Segment(
-                    label = "История",
-                    count = historyCount,
-                    selected = tab == LibraryTab.HISTORY,
-                    selection = selection(1),
-                    onClick = { onTabChange(LibraryTab.HISTORY) },
-                    modifier = Modifier.weight(1f),
-                )
-                Segment(
                     label = "Загрузки",
                     count = downloadCount,
                     selected = tab == LibraryTab.DOWNLOADS,
-                    selection = selection(2),
+                    selection = selection(1),
                     onClick = { onTabChange(LibraryTab.DOWNLOADS) },
                     modifier = Modifier.weight(1f),
                 )

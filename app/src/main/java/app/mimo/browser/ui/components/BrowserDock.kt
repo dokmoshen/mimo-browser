@@ -89,7 +89,6 @@ fun BrowserSurfaceHost(
     mode: BrowserPanelMode,
     tabCount: Int,
     bookmarkCount: Int,
-    historyCount: Int,
     downloadCount: Int,
     canGoBack: Boolean,
     canGoForward: Boolean,
@@ -106,8 +105,8 @@ fun BrowserSurfaceHost(
     onForward: () -> Unit,
     onNewTab: () -> Unit,
     onTabs: () -> Unit,
+    onNewPrivateTab: () -> Unit,
     onBookmarks: () -> Unit,
-    onHistory: () -> Unit,
     onDownloads: () -> Unit,
     onShare: () -> Unit,
     onCopyLink: () -> Unit,
@@ -360,14 +359,13 @@ fun BrowserSurfaceHost(
                         MenuContent(
                             tabCount = tabCount,
                             bookmarkCount = bookmarkCount,
-                            historyCount = historyCount,
                             downloadCount = downloadCount,
                             desktopMode = desktopMode,
                             hasPage = hasPage,
                             onDismiss = onDismiss,
                             onTabs = onTabs,
+                            onNewPrivateTab = onNewPrivateTab,
                             onBookmarks = onBookmarks,
-                            onHistory = onHistory,
                             onDownloads = onDownloads,
                             onShare = onShare,
                             onCopyLink = onCopyLink,
@@ -624,7 +622,6 @@ private fun NewTabButton(onClick: () -> Unit) {
 private fun MenuContent(
     tabCount: Int,
     bookmarkCount: Int,
-    historyCount: Int,
     downloadCount: Int,
     desktopMode: Boolean,
     hasPage: Boolean,
@@ -634,8 +631,8 @@ private fun MenuContent(
     solidBackground: Boolean = false,
     onDismiss: () -> Unit,
     onTabs: () -> Unit,
+    onNewPrivateTab: () -> Unit,
     onBookmarks: () -> Unit,
-    onHistory: () -> Unit,
     onDownloads: () -> Unit,
     onShare: () -> Unit,
     onCopyLink: () -> Unit,
@@ -695,18 +692,20 @@ private fun MenuContent(
             },
         )
         MenuRow(
+            icon = MimoIcons.VisibilityOff,
+            label = "Новая вкладка инкогнито",
+            revealIndex = 1,
+            onClick = {
+                onDismiss()
+                onNewPrivateTab()
+            },
+        )
+        MenuRow(
             icon = BrowserIcons.Bookmark,
             label = "Закладки",
             count = bookmarkCount,
-            revealIndex = 1,
-            onClick = onBookmarks,
-        )
-        MenuRow(
-            icon = MimoIcons.History,
-            label = "История",
-            count = historyCount,
             revealIndex = 2,
-            onClick = onHistory,
+            onClick = onBookmarks,
         )
         MenuRow(
             icon = MimoIcons.FileDownload,

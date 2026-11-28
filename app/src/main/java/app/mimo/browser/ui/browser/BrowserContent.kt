@@ -94,6 +94,7 @@ fun BrowserContent(
     tabCount: Int,
     onOpenOmnibox: () -> Unit,
     onTabs: () -> Unit,
+    onNewPrivateTab: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenInNewTab: (String) -> Unit,
     onOpenSearchResult: (String) -> Unit,
@@ -273,6 +274,10 @@ fun BrowserContent(
             BrowserHomeScreen(
                 onOpenOmnibox = onOpenOmnibox,
                 omniboxOpen = omniboxOpen,
+                tabCount = tabCount,
+                isPrivate = state.isPrivate,
+                onTabs = onTabs,
+                onNewPrivateTab = onNewPrivateTab,
             )
         }
         return

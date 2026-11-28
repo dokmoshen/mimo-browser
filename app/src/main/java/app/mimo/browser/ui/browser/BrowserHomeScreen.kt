@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -56,6 +57,10 @@ import kotlinx.coroutines.launch
 fun BrowserHomeScreen(
     onOpenOmnibox: () -> Unit,
     omniboxOpen: Boolean,
+    tabCount: Int,
+    isPrivate: Boolean,
+    onTabs: () -> Unit,
+    onNewPrivateTab: () -> Unit,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -103,6 +108,33 @@ fun BrowserHomeScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             val brandFade = { (1f - flight.value * 1.8f).coerceIn(0f, 1f) }
+            if (isPrivate) {
+                Surface(
+                    modifier = Modifier
+                        .staggeredReveal(index = 0, offsetY = 16.dp)
+                        .graphicsLayer { alpha = brandFade() },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            MimoIcons.VisibilityOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            "Инкогнито · история не сохраняется",
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+            }
             MimoLogo(
                 modifier = Modifier
                     .size(76.dp)
@@ -165,6 +197,66 @@ fun BrowserHomeScreen(
                     },
             ) {
                 HomeSearchBar(onClick = ::flyToTop)
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 10.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                onClick = onNewPrivateTab,
+                modifier = Modifier.size(46.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
+                contentColor = MaterialTheme.colorScheme.tertiary,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                ),
+                shadowElevation = 2.dp,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        MimoIcons.VisibilityOff,
+                        contentDescription = "Новая вкладка инкогнито",
+                        modifier = Modifier.size(21.dp),
+                    )
+                }
+            }
+            Surface(
+                onClick = onTabs,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                ),
+                shadowElevation = 2.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .height(46.dp)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        BrowserIcons.Tabs,
+                        contentDescription = "Вкладки",
+                        modifier = Modifier.size(21.dp),
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text(
+                        if (tabCount > 99) "99" else tabCount.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }

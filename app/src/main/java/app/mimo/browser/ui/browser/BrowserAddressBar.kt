@@ -148,7 +148,11 @@ fun BrowserAddressBar(
             color = if (glass) Color.Transparent else surfaceColor.copy(alpha = 1f),
             border = BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                if (state.isPrivate) {
+                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                },
             ),
             shadowElevation = 0.dp,
         ) {
@@ -193,7 +197,11 @@ fun BrowserAddressBar(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AnimatedContent(
-                        targetState = state.isSecure,
+                        targetState = when {
+                            state.isPrivate -> 2
+                            state.isSecure -> 1
+                            else -> 0
+                        },
                         transitionSpec = {
                             (scaleIn(
                                 initialScale = 0.55f,
@@ -207,14 +215,22 @@ fun BrowserAddressBar(
                             )
                         },
                         label = "securityIcon",
-                    ) { secure ->
+                    ) { mode ->
                         Icon(
-                            if (secure) MimoIcons.Lock else BrowserIcons.Globe,
-                            contentDescription = if (secure) "Защищённое соединение" else "Обычное соединение",
-                            tint = if (secure) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            when (mode) {
+                                2 -> MimoIcons.VisibilityOff
+                                1 -> MimoIcons.Lock
+                                else -> BrowserIcons.Globe
+                            },
+                            contentDescription = when (mode) {
+                                2 -> "Инкогнито"
+                                1 -> "Защищённое соединение"
+                                else -> "Обычное соединение"
+                            },
+                            tint = when (mode) {
+                                2 -> MaterialTheme.colorScheme.tertiary
+                                1 -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
                             modifier = Modifier.size(17.dp),
                         )

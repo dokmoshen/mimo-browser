@@ -59,6 +59,7 @@ data class TabState(
     val canGoForward: Boolean = false,
     val isSecure: Boolean = false,
     val isDesktop: Boolean = false,
+    val isPrivate: Boolean = false,
     val error: PageFailure? = null,
 ) {
     val isHome: Boolean get() = UrlKit.isHome(url)
@@ -148,12 +149,12 @@ class BrowserEngine(
         }
     }
 
-    fun newTab(url: String? = null, select: Boolean = true): BrowserTab {
+    fun newTab(url: String? = null, select: Boolean = true, private: Boolean = false): BrowserTab {
         val id = nextId++
         val webView = MimoWebView(context)
         setupWebView(webView)
         val tab = BrowserTab(id, webView, ::publish)
-        tab.update { it.copy(isDesktop = settings.desktopMode) }
+        tab.update { it.copy(isDesktop = settings.desktopMode, isPrivate = private) }
         webView.webViewClient = MimoWebViewClient(tab)
         webView.webChromeClient = MimoChromeClient(tab)
         tabs[id] = tab
@@ -243,7 +244,7 @@ class BrowserEngine(
         if (tab != null && tab.current.isHome) {
             tab.webView.loadUrl(url)
         } else {
-            newTab(url)
+            newTab(url, private = tab?.current?.isPrivate == true)
         }
     }
 
@@ -453,7 +454,7 @@ class BrowserEngine(
                     isSecure = UrlKit.isSecure(current),
                 )
             }
-            if (UrlKit.isHttp(current)) {
+            if (UrlKit.isHttp(current) && !tab.current.isPrivate) {
                 val pageTitle = view.title.orEmpty()
                 scope.launch(Dispatchers.IO) {
                     history.recordVisit(current, pageTitle)

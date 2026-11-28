@@ -60,6 +60,7 @@ import app.mimo.browser.ui.components.SectionHeader
 import app.mimo.browser.ui.components.pressScale
 import app.mimo.browser.ui.displayName
 import app.mimo.browser.ui.util.pluralRu
+import app.mimo.browser.data.HistoryEntity
 import app.mimo.browser.update.UpdateChecker
 import app.mimo.browser.update.UpdateInfo
 import java.io.File
@@ -69,14 +70,17 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class ClearTarget { HISTORY, BOOKMARKS, DOWNLOADS, WEB_DATA }
+private enum class ClearTarget { BOOKMARKS, DOWNLOADS, WEB_DATA }
 
 @Composable
 fun BrowserSettingsScreen(
     settings: BrowserSettings,
+    history: List<HistoryEntity>,
     historyCount: Int,
     bookmarkCount: Int,
     downloadCount: Int,
+    onOpenHistory: (String) -> Unit,
+    onDeleteHistory: (HistoryEntity) -> Unit,
     onBack: () -> Unit,
     onTheme: (ThemeMode) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
@@ -91,6 +95,7 @@ fun BrowserSettingsScreen(
     onClearWebData: () -> Unit,
 ) {
     var clearTarget by remember { mutableStateOf<ClearTarget?>(null) }
+    var showHistory by remember { mutableStateOf(false) }
     val haptics = LocalMimoHaptics.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -207,6 +212,17 @@ fun BrowserSettingsScreen(
         updateReady = false
         updateProgress = 0f
         updateError = null
+    }
+
+    if (showHistory) {
+        HistorySettingsScreen(
+            history = history,
+            onBack = { showHistory = false },
+            onOpen = onOpenHistory,
+            onDelete = onDeleteHistory,
+            onClear = onClearHistory,
+        )
+        return
     }
 
     MimoBackdrop {
@@ -353,7 +369,7 @@ fun BrowserSettingsScreen(
                         title = "История",
                         subtitle = if (historyCount == 0) "Пусто" else "$historyCount ${pluralRu(historyCount, "запись", "записи", "записей")}",
                         icon = MimoIcons.History,
-                        onClick = { clearTarget = ClearTarget.HISTORY },
+                        onClick = { showHistory = true },
                     )
                     SettingActionRow(
                         title = "Закладки",
@@ -389,10 +405,6 @@ fun BrowserSettingsScreen(
         val title: String
         val body: String
         when (target) {
-            ClearTarget.HISTORY -> {
-                title = "Очистить историю?"
-                body = "Все посещения исчезнут. Это действие нельзя отменить."
-            }
             ClearTarget.BOOKMARKS -> {
                 title = "Очистить закладки?"
                 body = "Все сохранённые страницы исчезнут. Это действие нельзя отменить."
@@ -415,7 +427,6 @@ fun BrowserSettingsScreen(
                     clearTarget = null
                     haptics.confirm()
                     when (target) {
-                        ClearTarget.HISTORY -> onClearHistory()
                         ClearTarget.BOOKMARKS -> onClearBookmarks()
                         ClearTarget.DOWNLOADS -> onClearDownloads()
                         ClearTarget.WEB_DATA -> onClearWebData()
