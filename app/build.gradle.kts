@@ -13,8 +13,8 @@ android {
         applicationId = "app.mimo.browser"
         minSdk = 28
         targetSdk = 37
-        versionCode = 16
-        versionName = "0.1.15"
+        versionCode = 17
+        versionName = "0.1.16"
     }
 
     buildFeatures {

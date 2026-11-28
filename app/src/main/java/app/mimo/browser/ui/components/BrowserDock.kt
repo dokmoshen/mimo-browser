@@ -39,10 +39,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -644,13 +642,12 @@ private fun MenuContent(
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
+                .height(38.dp)
                 .padding(start = 10.dp, end = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -795,7 +792,7 @@ private fun MenuRow(
             )
             .pressScale(interaction, 0.98f)
             .fillMaxWidth()
-            .height(44.dp),
+            .height(38.dp),
         shape = RoundedCornerShape(15.dp),
         color = if (checked) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
         contentColor = if (checked) MaterialTheme.colorScheme.onSecondaryContainer
